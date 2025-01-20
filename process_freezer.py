@@ -74,7 +74,8 @@ class ProcessManager:
                     result = subprocess.run(['pssuspend64.exe', identifier], 
                                          check=True, 
                                          capture_output=True,
-                                         text=True)
+                                         text=True,
+                                         creationflags=subprocess.CREATE_NO_WINDOW)
                     if result.returncode == 0:
                         self.processes[identifier]["is_frozen"] = True
                         logging.info(f"Successfully froze process: {identifier}")
@@ -86,7 +87,8 @@ class ProcessManager:
                     result = subprocess.run(['pssuspend64.exe', '-r', identifier], 
                                          check=True,
                                          capture_output=True,
-                                         text=True)
+                                         text=True,
+                                         creationflags=subprocess.CREATE_NO_WINDOW)
                     if result.returncode == 0:
                         self.processes[identifier]["is_frozen"] = False
                         logging.info(f"Successfully resumed process: {identifier}")

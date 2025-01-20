@@ -642,3 +642,80 @@ Traceback (most recent call last):
   File "E:\Desktop\process-freezer\process_freezer.py", line 437, in quit_from_tray
     sys.exit(0)
 SystemExit: 0
+2025-01-20 20:43:46,544 - DEBUG - Importing BlpImagePlugin
+2025-01-20 20:43:46,546 - DEBUG - Importing BmpImagePlugin
+2025-01-20 20:43:46,546 - DEBUG - Importing BufrStubImagePlugin
+2025-01-20 20:43:46,548 - DEBUG - Importing CurImagePlugin
+2025-01-20 20:43:46,550 - DEBUG - Importing DcxImagePlugin
+2025-01-20 20:43:46,553 - DEBUG - Importing DdsImagePlugin
+2025-01-20 20:43:46,557 - DEBUG - Importing EpsImagePlugin
+2025-01-20 20:43:46,559 - DEBUG - Importing FitsImagePlugin
+2025-01-20 20:43:46,560 - DEBUG - Importing FliImagePlugin
+2025-01-20 20:43:46,562 - DEBUG - Importing FpxImagePlugin
+2025-01-20 20:43:46,565 - DEBUG - Image: failed to import FpxImagePlugin: No module named 'olefile'
+2025-01-20 20:43:46,565 - DEBUG - Importing FtexImagePlugin
+2025-01-20 20:43:46,568 - DEBUG - Importing GbrImagePlugin
+2025-01-20 20:43:46,569 - DEBUG - Importing GifImagePlugin
+2025-01-20 20:43:46,569 - DEBUG - Importing GribStubImagePlugin
+2025-01-20 20:43:46,571 - DEBUG - Importing Hdf5StubImagePlugin
+2025-01-20 20:43:46,574 - DEBUG - Importing IcnsImagePlugin
+2025-01-20 20:43:46,579 - DEBUG - Importing IcoImagePlugin
+2025-01-20 20:43:46,581 - DEBUG - Importing ImImagePlugin
+2025-01-20 20:43:46,583 - DEBUG - Importing ImtImagePlugin
+2025-01-20 20:43:46,585 - DEBUG - Importing IptcImagePlugin
+2025-01-20 20:43:46,587 - DEBUG - Importing JpegImagePlugin
+2025-01-20 20:43:46,587 - DEBUG - Importing Jpeg2KImagePlugin
+2025-01-20 20:43:46,587 - DEBUG - Importing McIdasImagePlugin
+2025-01-20 20:43:46,589 - DEBUG - Importing MicImagePlugin
+2025-01-20 20:43:46,592 - DEBUG - Image: failed to import MicImagePlugin: No module named 'olefile'
+2025-01-20 20:43:46,592 - DEBUG - Importing MpegImagePlugin
+2025-01-20 20:43:46,593 - DEBUG - Importing MpoImagePlugin
+2025-01-20 20:43:46,608 - DEBUG - Importing MspImagePlugin
+2025-01-20 20:43:46,610 - DEBUG - Importing PalmImagePlugin
+2025-01-20 20:43:46,614 - DEBUG - Importing PcdImagePlugin
+2025-01-20 20:43:46,616 - DEBUG - Importing PcxImagePlugin
+2025-01-20 20:43:46,617 - DEBUG - Importing PdfImagePlugin
+2025-01-20 20:43:46,629 - DEBUG - Importing PixarImagePlugin
+2025-01-20 20:43:46,631 - DEBUG - Importing PngImagePlugin
+2025-01-20 20:43:46,631 - DEBUG - Importing PpmImagePlugin
+2025-01-20 20:43:46,631 - DEBUG - Importing PsdImagePlugin
+2025-01-20 20:43:46,633 - DEBUG - Importing QoiImagePlugin
+2025-01-20 20:43:46,635 - DEBUG - Importing SgiImagePlugin
+2025-01-20 20:43:46,637 - DEBUG - Importing SpiderImagePlugin
+2025-01-20 20:43:46,639 - DEBUG - Importing SunImagePlugin
+2025-01-20 20:43:46,641 - DEBUG - Importing TgaImagePlugin
+2025-01-20 20:43:46,643 - DEBUG - Importing TiffImagePlugin
+2025-01-20 20:43:46,643 - DEBUG - Importing WebPImagePlugin
+2025-01-20 20:43:46,648 - DEBUG - Importing WmfImagePlugin
+2025-01-20 20:43:46,650 - DEBUG - Importing XbmImagePlugin
+2025-01-20 20:43:46,653 - DEBUG - Importing XpmImagePlugin
+2025-01-20 20:43:46,655 - DEBUG - Importing XVThumbImagePlugin
+2025-01-20 20:43:54,754 - INFO - Toggle freeze for process: b1-Win64-Shipping.exe
+2025-01-20 20:43:54,754 - INFO - Current state: True
+2025-01-20 20:43:54,754 - INFO - New state: False
+2025-01-20 20:43:54,754 - INFO - Attempting to resume process: b1-Win64-Shipping.exe
+2025-01-20 20:43:55,845 - INFO - Successfully resumed process: b1-Win64-Shipping.exe
+2025-01-20 20:44:00,439 - INFO - Toggle freeze for process: b1-Win64-Shipping.exe
+2025-01-20 20:44:00,440 - INFO - Current state: False
+2025-01-20 20:44:00,441 - INFO - New state: True
+2025-01-20 20:44:00,441 - INFO - Attempting to freeze process: b1-Win64-Shipping.exe
+2025-01-20 20:44:02,174 - INFO - Successfully froze process: b1-Win64-Shipping.exe
+2025-01-20 20:51:00,179 - ERROR - An error occurred when calling message handler
+Traceback (most recent call last):
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_win32.py", line 412, in _dispatcher
+    return int(icon._message_handlers.get(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_win32.py", line 224, in _on_notify
+    descriptors[index - 1](self)
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_base.py", line 328, in inner
+    callback(self)
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_base.py", line 453, in __call__
+    return self._action(icon, self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_base.py", line 548, in wrapper0
+    return action()
+           ^^^^^^^^
+  File "E:\Workspaces\git\my\process-freezer\process_freezer.py", line 437, in quit_from_tray
+    self.window.quit()
+    ^^^^^^^^^^^
+SystemExit: 0
