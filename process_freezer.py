@@ -185,7 +185,15 @@ class ProcessListWindow:
         self.window.title("进程冻结器")
         self.window.geometry("700x400")
         self.window.configure(bg='#f0f0f0')  # 设置窗口背景色
+        
+        # 设置窗口图标
+        icon_path = os.path.join(os.path.dirname(__file__), "icon.ico")
+        if os.path.exists(icon_path):
+            self.window.iconbitmap(icon_path)
+        
+        # 绑定窗口事件
         self.window.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
+        self.window.bind("<Unmap>", lambda e: self.handle_minimize(e))
         
         # 设置统一的字体
         self.default_font = ('Microsoft YaHei UI', 10)
@@ -405,12 +413,29 @@ class ProcessListWindow:
             self.update_process_list()
 
     def minimize_to_tray(self):
-        self.window.iconify()  # 最小化窗口到任务栏
+        """最小化到托盘"""
+        self.window.withdraw()  # 隐藏窗口
     
     def quit_app(self):
         if messagebox.askokcancel("确认", "确定要退出程序吗？"):
+            # 先停止托盘图标
+            if hasattr(self, 'tray_icon'):
+                self.tray_icon.stop()
+            # 销毁主窗口
             self.window.quit()
+            # 退出程序
+            sys.exit(0)
     
+    def quit_from_tray(self):
+        """从托盘菜单退出程序"""
+        # 先停止托盘图标
+        if hasattr(self, 'tray_icon'):
+            self.tray_icon.stop()
+        # 销毁主窗口
+        self.window.quit()
+        # 退出程序
+        sys.exit(0)
+
     def add_process(self):
         dialog = AddProcessDialog(self.window)
         self.window.wait_window(dialog.dialog)
@@ -435,17 +460,20 @@ class ProcessListWindow:
 
     def create_tray_icon(self):
         """创建系统托盘图标"""
-        # 创建图标图像
-        icon_size = 64
-        image = Image.new('RGBA', (icon_size, icon_size), (0, 0, 0, 0))
-        dc = ImageDraw.Draw(image)
-        
-        # 绘制一个简单的图标（一个圆形）
-        margin = 4
-        dc.ellipse(
-            [margin, margin, icon_size - margin, icon_size - margin],
-            fill='#007bff'
-        )
+        # 使用ico文件作为托盘图标
+        icon_path = os.path.join(os.path.dirname(__file__), "icon.ico")
+        if os.path.exists(icon_path):
+            image = Image.open(icon_path)
+        else:
+            # 如果找不到图标文件，使用默认的圆形图标
+            icon_size = 64
+            image = Image.new('RGBA', (icon_size, icon_size), (0, 0, 0, 0))
+            dc = ImageDraw.Draw(image)
+            margin = 4
+            dc.ellipse(
+                [margin, margin, icon_size - margin, icon_size - margin],
+                fill='#007bff'
+            )
         
         def toggle_process(process_id):
             """切换进程状态的包装函数"""
@@ -460,7 +488,9 @@ class ProcessListWindow:
             for proc_id, data in processes.items():
                 display_name = data.get("name", proc_id)
                 is_frozen = data.get("is_frozen", False)
-                text = f"{'解冻' if is_frozen else '冻结'} {display_name}"
+                # 为已冻结的进程添加雪花图标
+                prefix = "❄ " if is_frozen else "  "
+                text = f"{prefix}{'解冻' if is_frozen else '冻结'} {display_name}"
                 menu_items.append(
                     pystray.MenuItem(
                         text,
@@ -476,11 +506,12 @@ class ProcessListWindow:
             menu_items.extend([
                 pystray.MenuItem(
                     "显示主窗口",
-                    self.show_window
+                    self.show_window,
+                    default=True  # 设置为默认动作（双击时执行）
                 ),
                 pystray.MenuItem(
                     "退出",
-                    self.quit_app
+                    self.quit_from_tray  # 使用专门的托盘退出函数
                 )
             ])
             
@@ -488,7 +519,7 @@ class ProcessListWindow:
         
         # 保存get_menu函数以供后续更新使用
         self.get_tray_menu = get_menu
-        
+
         # 创建托盘图标
         self.tray_icon = pystray.Icon(
             "process_freezer",
@@ -518,18 +549,26 @@ class ProcessListWindow:
     
     def show_window(self):
         """显示主窗口"""
-        self.window.deiconify()
-        self.window.lift()
-        self.window.focus_force()
+        self.window.deiconify()  # 显示窗口
+        self.window.state('normal')  # 确保窗口不是最小化状态
+        self.window.lift()  # 将窗口提升到顶层
+        self.window.focus_force()  # 强制获取焦点
     
     def quit_app(self):
         """退出应用程序"""
-        # 停止托盘图标
-        self.tray_icon.stop()
+        # 先停止托盘图标
+        if hasattr(self, 'tray_icon'):
+            self.tray_icon.stop()
         # 销毁主窗口
-        self.window.destroy()
+        self.window.quit()
         # 退出程序
         sys.exit(0)
+
+    def handle_minimize(self, event):
+        """处理最小化事件"""
+        # 如果是最小化操作，则隐藏到托盘
+        if self.window.state() == 'iconic':
+            self.minimize_to_tray()
 
 class AddProcessDialog:
     def __init__(self, parent):
