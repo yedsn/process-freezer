@@ -6,7 +6,10 @@ a = Analysis(
     ['process_freezer.py'],
     pathex=[],
     binaries=[],
-    datas=[('icon.ico', '.')],  # 包含图标文件
+    datas=[
+        ('assets/icon.ico', 'assets'),
+        ('assets/icon_inactive.ico', 'assets'),  # 添加灰色图标
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

@@ -11,7 +11,7 @@ import win32process
 import win32con
 import win32api
 import pystray
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 # 设置日志记录
 logging.basicConfig(
@@ -189,7 +189,7 @@ class ProcessListWindow:
         self.window.configure(bg='#f0f0f0')  # 设置窗口背景色
         
         # 设置窗口图标
-        icon_path = os.path.join(os.path.dirname(__file__), "icon.ico")
+        icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
         if os.path.exists(icon_path):
             self.window.iconbitmap(icon_path)
         
@@ -413,6 +413,7 @@ class ProcessListWindow:
             self.process_manager.toggle_freeze(process_id)
             # 更新列表显示
             self.update_process_list()
+            self.update_tray_icon()
 
     def minimize_to_tray(self):
         """最小化到托盘"""
@@ -444,10 +445,12 @@ class ProcessListWindow:
         if dialog.result:
             self.process_manager.add_process(dialog.result[0], dialog.result[1])
             self.update_process_list()
+            self.update_tray_icon()
             
     def remove_process(self, process_id):
         self.process_manager.remove_process(process_id)
         self.update_process_list()
+        self.update_tray_icon()
         
     def toggle_freeze(self, process_id, var):
         success = self.process_manager.toggle_freeze(process_id)
@@ -456,27 +459,90 @@ class ProcessListWindow:
             # Reset checkbox state
             var.set(not var.get())
         self.update_process_list()
+        self.update_tray_icon()
         
     def run(self):
         self.window.mainloop()
 
-    def create_tray_icon(self):
-        """创建系统托盘图标"""
-        # 使用ico文件作为托盘图标
-        icon_path = os.path.join(os.path.dirname(__file__), "icon.ico")
-        if os.path.exists(icon_path):
-            image = Image.open(icon_path)
+    def create_icon_image(self):
+        """创建托盘图标图像"""
+        # 计算冻结的进程数量
+        frozen_count = sum(1 for data in self.process_manager.processes.values() if data.get("is_frozen", False))
+        
+        # 根据是否有冻结进程选择图标
+        if frozen_count > 0:
+            icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
         else:
-            # 如果找不到图标文件，使用默认的圆形图标
+            icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon_inactive.ico")
+        
+        if os.path.exists(icon_path):
+            # 使用PIL打开图标文件
+            image = Image.open(icon_path)
+            # 转换为RGBA模式以支持透明度
+            image = image.convert('RGBA')
+        else:
+            # 创建默认的圆形图标
             icon_size = 64
             image = Image.new('RGBA', (icon_size, icon_size), (0, 0, 0, 0))
             dc = ImageDraw.Draw(image)
             margin = 4
+            
+            # 根据是否有冻结进程选择颜色
+            fill_color = '#007bff' if frozen_count > 0 else '#808080'
+            
             dc.ellipse(
                 [margin, margin, icon_size - margin, icon_size - margin],
-                fill='#007bff'
+                fill=fill_color
             )
         
+        # 如果有冻结的进程，添加数字标记
+        if frozen_count > 0:
+            # 创建一个新的图层用于绘制数字
+            txt_layer = Image.new('RGBA', image.size, (0, 0, 0, 0))
+            dc = ImageDraw.Draw(txt_layer)
+            
+            # 计算文本大小和位置
+            text = str(frozen_count)
+            font_size = int(image.width * 0.7)  # 增大字体大小为图标宽度的70%
+            try:
+                font = ImageFont.truetype("arial.ttf", font_size)
+            except:
+                font = None
+                
+            # 获取文本大小
+            if font:
+                text_bbox = dc.textbbox((0, 0), text, font=font)
+                text_width = text_bbox[2] - text_bbox[0]
+                text_height = text_bbox[3] - text_bbox[1]
+            else:
+                text_width = font_size
+                text_height = font_size
+            
+            # 计算文本位置（右下角）
+            margin = image.width // 12  # 减小边距，使数字更靠近边缘
+            x = image.width - text_width - margin
+            y = image.height - text_height - margin
+            
+            # 绘制文本背景（红色圆形）
+            circle_radius = max(text_width, text_height) // 2 + 6  # 增加背景圆形的大小
+            circle_x = x + text_width // 2
+            circle_y = y + text_height // 2
+            dc.ellipse(
+                [circle_x - circle_radius, circle_y - circle_radius,
+                 circle_x + circle_radius, circle_y + circle_radius],
+                fill='#FF0000'  # 使用红色背景
+            )
+            
+            # 绘制白色文本
+            dc.text((x, y), text, fill='#FFFFFF', font=font)  # 使用白色文本
+            
+            # 将文本图层合并到主图像
+            image = Image.alpha_composite(image, txt_layer)
+        
+        return image
+
+    def create_tray_icon(self):
+        """创建系统托盘图标"""
         def toggle_process(process_id):
             """切换进程状态的包装函数"""
             return lambda: self.toggle_from_tray(process_id)
@@ -525,14 +591,20 @@ class ProcessListWindow:
         # 创建托盘图标
         self.tray_icon = pystray.Icon(
             "process_freezer",
-            image,
+            self.create_icon_image(),  # 使用新的方法创建图标
             "进程冻结器",
             menu=get_menu()
         )
         
         # 在单独的线程中启动托盘图标
         self.tray_icon.run_detached()
-    
+
+    def update_tray_icon(self):
+        """更新托盘图标"""
+        if hasattr(self, 'tray_icon'):
+            self.tray_icon.icon = self.create_icon_image()
+            self.tray_icon.menu = self.get_tray_menu()
+
     def toggle_from_tray(self, process_id):
         """从托盘菜单切换进程状态"""
         success = self.process_manager.toggle_freeze(process_id)
@@ -543,19 +615,19 @@ class ProcessListWindow:
                 f"无法切换进程 {process_id} 的状态"
             )
         else:
-            # 更新托盘菜单
-            self.tray_icon.menu = self.get_tray_menu()
+            # 更新托盘图标和菜单
+            self.update_tray_icon()
             # 如果主窗口可见，更新显示
             if self.window.winfo_viewable():
                 self.update_process_list()
-    
+
     def show_window(self):
         """显示主窗口"""
         self.window.deiconify()  # 显示窗口
         self.window.state('normal')  # 确保窗口不是最小化状态
         self.window.lift()  # 将窗口提升到顶层
         self.window.focus_force()  # 强制获取焦点
-    
+
     def quit_app(self):
         """退出应用程序"""
         # 先停止托盘图标
