@@ -6,6 +6,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
 import psutil
+import win32gui
+import win32process
+import win32con
+import win32api
 
 # 设置日志记录
 logging.basicConfig(
@@ -99,6 +103,79 @@ class ProcessManager:
                 messagebox.showerror("错误", f"未知错误: {str(e)}")
                 return False
         return False
+
+class DragHandle:
+    def __init__(self, parent, callback):
+        self.parent = parent
+        self.callback = callback
+        self.dragging = False
+        
+        # 创建手柄按钮
+        self.handle = tk.Label(parent, 
+                             text="⊕", 
+                             font=('Microsoft YaHei UI', 16),
+                             fg='#007bff',
+                             bg='white',
+                             cursor="hand2")
+        
+        # 绑定事件
+        self.handle.bind('<Button-1>', self.start_drag)
+        self.handle.bind('<B1-Motion>', self.dragging)
+        self.handle.bind('<ButtonRelease-1>', self.stop_drag)
+        self.handle.bind('<Enter>', self.on_enter)
+        self.handle.bind('<Leave>', self.on_leave)
+    
+    def start_drag(self, event):
+        self.dragging = True
+        self.handle.configure(fg='#0056b3')  # 深蓝色
+    
+    def dragging(self, event):
+        if self.dragging:
+            # 获取鼠标位置
+            x, y = win32gui.GetCursorPos()
+            # 获取窗口句柄
+            hwnd = win32gui.WindowFromPoint((x, y))
+            if hwnd:
+                # 获取进程ID
+                _, process_id = win32process.GetWindowThreadProcessId(hwnd)
+                # 更新手柄显示
+                self.handle.configure(text="⊕")
+    
+    def stop_drag(self, event):
+        if self.dragging:
+            self.dragging = False
+            self.handle.configure(fg='#007bff', text="⊕")  # 恢复原始颜色
+            
+            # 获取鼠标位置下的窗口信息
+            x, y = win32gui.GetCursorPos()
+            hwnd = win32gui.WindowFromPoint((x, y))
+            
+            if hwnd:
+                # 获取进程ID和窗口标题
+                _, process_id = win32process.GetWindowThreadProcessId(hwnd)
+                window_title = win32gui.GetWindowText(hwnd)
+                
+                try:
+                    # 使用psutil获取进程信息
+                    process = psutil.Process(process_id)
+                    process_name = process.name()  # 获取进程的可执行文件名称
+                    
+                    # 调用回调函数，传递进程名称而不是ID
+                    if self.callback:
+                        self.callback(process_name, window_title)
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    messagebox.showerror("错误", "无法获取进程信息")
+    
+    def on_enter(self, event):
+        if not self.dragging:
+            self.handle.configure(fg='#0056b3')  # 深蓝色
+    
+    def on_leave(self, event):
+        if not self.dragging:
+            self.handle.configure(fg='#007bff')  # 恢复原始颜色
+    
+    def pack(self, **kwargs):
+        self.handle.pack(**kwargs)
 
 class ProcessListWindow:
     def __init__(self, process_manager):
@@ -369,94 +446,134 @@ class AddProcessDialog:
         
         # 标题
         title_label = tk.Label(main_frame,
-                             text="添加新进程",
+                             text="添加进程",
                              font=self.title_font,
                              bg='#f0f0f0',
                              fg='#333333')
         title_label.pack(pady=(0, 20))
+
+        # 拖动手柄框架
+        handle_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        handle_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # 进程名称输入框
-        tk.Label(main_frame,
-                text="进程名称:",
-                font=self.default_font,
-                bg='#f0f0f0',
-                fg='#333333').pack()
-        self.name_input = tk.Entry(main_frame,
+        handle_label = tk.Label(handle_frame,
+                              text="拖动句柄到目标窗口获取进程标识：",
+                              font=self.default_font,
+                              bg='#f0f0f0',
+                              fg='#333333')
+        handle_label.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # 创建拖动手柄
+        self.drag_handle = DragHandle(handle_frame, self.on_process_identified)
+        self.drag_handle.pack(side=tk.LEFT)
+        
+        # 进程ID输入框架
+        id_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        id_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        id_label = tk.Label(id_frame,
+                          text="进程标识符：",
+                          font=self.default_font,
+                          bg='#f0f0f0',
+                          fg='#333333')
+        id_label.pack(side=tk.LEFT)
+        
+        self.id_entry = tk.Entry(id_frame,
+                               font=self.default_font,
+                               width=30)
+        self.id_entry.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # 进程名称输入框架
+        name_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        name_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        name_label = tk.Label(name_frame,
+                            text="进程名称：",
+                            font=self.default_font,
+                            bg='#f0f0f0',
+                            fg='#333333')
+        name_label.pack(side=tk.LEFT)
+        
+        self.name_entry = tk.Entry(name_frame,
                                  font=self.default_font,
                                  width=30)
-        self.name_input.pack(pady=(0, 20))
-        
-        # 进程标识符输入框
-        tk.Label(main_frame,
-                text="进程标识符:",
-                font=self.default_font,
-                bg='#f0f0f0',
-                fg='#333333').pack()
-        self.process_input = tk.Entry(main_frame,
-                                    font=self.default_font,
-                                    width=30)
-        self.process_input.pack(pady=(0, 20))
-        
-        # 提示文本
-        tip_text = "提示：进程标识符通常是进程的可执行文件名，例如：notepad.exe"
-        tip_label = tk.Label(main_frame,
-                           text=tip_text,
-                           font=(self.default_font[0], 9),
-                           bg='#f0f0f0',
-                           fg='#666666',
-                           wraplength=300)  # 设置文本自动换行
-        tip_label.pack(pady=(0, 20))
+        self.name_entry.pack(side=tk.LEFT, padx=(10, 0))
         
         # 按钮框架
         button_frame = tk.Frame(main_frame, bg='#f0f0f0')
-        button_frame.pack()
+        button_frame.pack(pady=10)
         
         # 确定按钮
-        ok_btn = tk.Button(button_frame,
-                          text="确定",
-                          command=self.accept,
-                          font=self.default_font,
-                          bg='#28a745',
-                          fg='white',
-                          relief=tk.FLAT,
-                          padx=20)
-        ok_btn.pack(side=tk.LEFT, padx=5)
+        self.ok_button = tk.Button(button_frame,
+                                 text="确定",
+                                 command=self.ok,
+                                 font=self.default_font,
+                                 bg='#007bff',
+                                 fg='white',
+                                 relief=tk.FLAT,
+                                 width=10)
+        self.ok_button.pack(side=tk.LEFT, padx=5)
         
         # 取消按钮
-        cancel_btn = tk.Button(button_frame,
-                             text="取消",
-                             command=self.cancel,
-                             font=self.default_font,
-                             bg='#6c757d',
-                             fg='white',
-                             relief=tk.FLAT,
-                             padx=20)
-        cancel_btn.pack(side=tk.LEFT, padx=5)
+        self.cancel_button = tk.Button(button_frame,
+                                     text="取消",
+                                     command=self.cancel,
+                                     font=self.default_font,
+                                     bg='#6c757d',
+                                     fg='white',
+                                     relief=tk.FLAT,
+                                     width=10)
+        self.cancel_button.pack(side=tk.LEFT, padx=5)
         
         # 绑定鼠标悬停事件
-        for btn in [ok_btn, cancel_btn]:
+        for btn in [self.ok_button, self.cancel_button]:
             btn.bind('<Enter>', lambda e, b=btn: self.on_hover(e, b))
             btn.bind('<Leave>', lambda e, b=btn: self.on_leave(e, b))
         
         self.result = None
         
-    def on_hover(self, event, button):
-        if button['text'] == "确定":
-            button.configure(bg='#218838')
-        else:  # 取消按钮
-            button.configure(bg='#5a6268')
-
-    def on_leave(self, event, button):
-        if button['text'] == "确定":
-            button.configure(bg='#28a745')
-        else:  # 取消按钮
-            button.configure(bg='#6c757d')
-            
-    def accept(self):
-        self.result = (self.process_input.get().strip(), self.name_input.get().strip())
-        self.dialog.destroy()
+        # 设置对话框为模态
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+    
+    def on_process_identified(self, process_name, window_title):
+        """当通过拖动识别到进程时调用"""
+        self.id_entry.delete(0, tk.END)
+        self.id_entry.insert(0, process_name)
         
+        # 如果名称框为空，则使用窗口标题作为默认名称
+        if not self.name_entry.get() and window_title:
+            self.name_entry.delete(0, tk.END)
+            self.name_entry.insert(0, window_title)
+    
+    def on_hover(self, event, button):
+        """鼠标悬停效果"""
+        if button == self.ok_button:
+            button.configure(bg='#0056b3')  # 深蓝色
+        else:
+            button.configure(bg='#5a6268')  # 深灰色
+    
+    def on_leave(self, event, button):
+        """鼠标离开效果"""
+        if button == self.ok_button:
+            button.configure(bg='#007bff')  # 恢复蓝色
+        else:
+            button.configure(bg='#6c757d')  # 恢复灰色
+    
+    def ok(self):
+        """确定按钮回调"""
+        process_id = self.id_entry.get().strip()
+        process_name = self.name_entry.get().strip()
+        
+        if not process_id:
+            messagebox.showerror("错误", "请输入进程标识符")
+            return
+        
+        self.result = (process_id, process_name)
+        self.dialog.destroy()
+    
     def cancel(self):
+        """取消按钮回调"""
         self.dialog.destroy()
 
 if __name__ == '__main__':
