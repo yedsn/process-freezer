@@ -495,49 +495,49 @@ class ProcessListWindow:
                 fill=fill_color
             )
         
-        # 如果有冻结的进程，添加数字标记
-        if frozen_count > 0:
-            # 创建一个新的图层用于绘制数字
-            txt_layer = Image.new('RGBA', image.size, (0, 0, 0, 0))
-            dc = ImageDraw.Draw(txt_layer)
+        # # 如果有冻结的进程，添加数字标记
+        # if frozen_count > 0:
+        #     # 创建一个新的图层用于绘制数字
+        #     txt_layer = Image.new('RGBA', image.size, (0, 0, 0, 0))
+        #     dc = ImageDraw.Draw(txt_layer)
             
-            # 计算文本大小和位置
-            text = str(frozen_count)
-            font_size = int(image.width * 0.7)  # 增大字体大小为图标宽度的70%
-            try:
-                font = ImageFont.truetype("arial.ttf", font_size)
-            except:
-                font = None
+        #     # 计算文本大小和位置
+        #     text = str(frozen_count)
+        #     font_size = int(image.width * 0.7)  # 增大字体大小为图标宽度的70%
+        #     try:
+        #         font = ImageFont.truetype("arial.ttf", font_size)
+        #     except:
+        #         font = None
                 
-            # 获取文本大小
-            if font:
-                text_bbox = dc.textbbox((0, 0), text, font=font)
-                text_width = text_bbox[2] - text_bbox[0]
-                text_height = text_bbox[3] - text_bbox[1]
-            else:
-                text_width = font_size
-                text_height = font_size
+        #     # 获取文本大小
+        #     if font:
+        #         text_bbox = dc.textbbox((0, 0), text, font=font)
+        #         text_width = text_bbox[2] - text_bbox[0]
+        #         text_height = text_bbox[3] - text_bbox[1]
+        #     else:
+        #         text_width = font_size
+        #         text_height = font_size
             
-            # 计算文本位置（右下角）
-            margin = image.width // 12  # 减小边距，使数字更靠近边缘
-            x = image.width - text_width - margin
-            y = image.height - text_height - margin
+        #     # 计算文本位置（右下角）
+        #     margin = image.width // 12  # 减小边距，使数字更靠近边缘
+        #     x = image.width - text_width - margin
+        #     y = image.height - text_height - margin
             
-            # 绘制文本背景（红色圆形）
-            circle_radius = max(text_width, text_height) // 2 + 6  # 增加背景圆形的大小
-            circle_x = x + text_width // 2
-            circle_y = y + text_height // 2
-            dc.ellipse(
-                [circle_x - circle_radius, circle_y - circle_radius,
-                 circle_x + circle_radius, circle_y + circle_radius],
-                fill='#FF0000'  # 使用红色背景
-            )
+        #     # 绘制文本背景（红色圆形）
+        #     circle_radius = max(text_width, text_height) // 2 + 6  # 增加背景圆形的大小
+        #     circle_x = x + text_width // 2
+        #     circle_y = y + text_height // 2
+        #     dc.ellipse(
+        #         [circle_x - circle_radius, circle_y - circle_radius,
+        #          circle_x + circle_radius, circle_y + circle_radius],
+        #         fill='#FF0000'  # 使用红色背景
+        #     )
             
-            # 绘制白色文本
-            dc.text((x, y), text, fill='#FFFFFF', font=font)  # 使用白色文本
+        #     # 绘制白色文本
+        #     dc.text((x, y), text, fill='#FFFFFF', font=font)  # 使用白色文本
             
-            # 将文本图层合并到主图像
-            image = Image.alpha_composite(image, txt_layer)
+        #     # 将文本图层合并到主图像
+        #     image = Image.alpha_composite(image, txt_layer)
         
         return image
 
