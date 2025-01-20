@@ -10,6 +10,8 @@ import win32gui
 import win32process
 import win32con
 import win32api
+import pystray
+from PIL import Image, ImageDraw
 
 # 设置日志记录
 logging.basicConfig(
@@ -184,12 +186,15 @@ class ProcessListWindow:
         self.window.geometry("700x400")
         self.window.configure(bg='#f0f0f0')  # 设置窗口背景色
         self.window.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
-
+        
         # 设置统一的字体
         self.default_font = ('Microsoft YaHei UI', 10)
         self.title_font = ('Microsoft YaHei UI', 12, 'bold')
         
         self.process_manager = process_manager
+        
+        # 创建托盘图标
+        self.create_tray_icon()
         
         # 创建主框架
         main_frame = tk.Frame(self.window, bg='#f0f0f0')
@@ -427,6 +432,104 @@ class ProcessListWindow:
         
     def run(self):
         self.window.mainloop()
+
+    def create_tray_icon(self):
+        """创建系统托盘图标"""
+        # 创建图标图像
+        icon_size = 64
+        image = Image.new('RGBA', (icon_size, icon_size), (0, 0, 0, 0))
+        dc = ImageDraw.Draw(image)
+        
+        # 绘制一个简单的图标（一个圆形）
+        margin = 4
+        dc.ellipse(
+            [margin, margin, icon_size - margin, icon_size - margin],
+            fill='#007bff'
+        )
+        
+        def toggle_process(process_id):
+            """切换进程状态的包装函数"""
+            return lambda: self.toggle_from_tray(process_id)
+        
+        def get_menu():
+            """获取最新的菜单项"""
+            processes = self.process_manager.processes
+            menu_items = []
+            
+            # 添加所有已添加的进程到菜单
+            for proc_id, data in processes.items():
+                display_name = data.get("name", proc_id)
+                is_frozen = data.get("is_frozen", False)
+                text = f"{'解冻' if is_frozen else '冻结'} {display_name}"
+                menu_items.append(
+                    pystray.MenuItem(
+                        text,
+                        toggle_process(proc_id)
+                    )
+                )
+            
+            # 添加分隔线
+            if menu_items:
+                menu_items.append(pystray.Menu.SEPARATOR)
+            
+            # 添加显示窗口和退出选项
+            menu_items.extend([
+                pystray.MenuItem(
+                    "显示主窗口",
+                    self.show_window
+                ),
+                pystray.MenuItem(
+                    "退出",
+                    self.quit_app
+                )
+            ])
+            
+            return pystray.Menu(*menu_items)
+        
+        # 保存get_menu函数以供后续更新使用
+        self.get_tray_menu = get_menu
+        
+        # 创建托盘图标
+        self.tray_icon = pystray.Icon(
+            "process_freezer",
+            image,
+            "进程冻结器",
+            menu=get_menu()
+        )
+        
+        # 在单独的线程中启动托盘图标
+        self.tray_icon.run_detached()
+    
+    def toggle_from_tray(self, process_id):
+        """从托盘菜单切换进程状态"""
+        success = self.process_manager.toggle_freeze(process_id)
+        if not success:
+            # 在托盘图标显示通知
+            self.tray_icon.notify(
+                "错误",
+                f"无法切换进程 {process_id} 的状态"
+            )
+        else:
+            # 更新托盘菜单
+            self.tray_icon.menu = self.get_tray_menu()
+            # 如果主窗口可见，更新显示
+            if self.window.winfo_viewable():
+                self.update_process_list()
+    
+    def show_window(self):
+        """显示主窗口"""
+        self.window.deiconify()
+        self.window.lift()
+        self.window.focus_force()
+    
+    def quit_app(self):
+        """退出应用程序"""
+        # 停止托盘图标
+        self.tray_icon.stop()
+        # 销毁主窗口
+        self.window.destroy()
+        # 退出程序
+        sys.exit(0)
 
 class AddProcessDialog:
     def __init__(self, parent):

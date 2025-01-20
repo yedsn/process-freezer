@@ -61,3 +61,136 @@
 2025-01-20 14:31:37,842 - INFO - New state: False
 2025-01-20 14:31:37,843 - INFO - Attempting to resume process: b1-Win64-Shipping.exe
 2025-01-20 14:31:38,861 - INFO - Successfully resumed process: b1-Win64-Shipping.exe
+2025-01-20 14:44:35,560 - DEBUG - Importing BlpImagePlugin
+2025-01-20 14:44:35,563 - DEBUG - Importing BmpImagePlugin
+2025-01-20 14:44:35,563 - DEBUG - Importing BufrStubImagePlugin
+2025-01-20 14:44:35,565 - DEBUG - Importing CurImagePlugin
+2025-01-20 14:44:35,566 - DEBUG - Importing DcxImagePlugin
+2025-01-20 14:44:35,569 - DEBUG - Importing DdsImagePlugin
+2025-01-20 14:44:35,572 - DEBUG - Importing EpsImagePlugin
+2025-01-20 14:44:35,574 - DEBUG - Importing FitsImagePlugin
+2025-01-20 14:44:35,575 - DEBUG - Importing FliImagePlugin
+2025-01-20 14:44:35,577 - DEBUG - Importing FpxImagePlugin
+2025-01-20 14:44:35,580 - DEBUG - Image: failed to import FpxImagePlugin: No module named 'olefile'
+2025-01-20 14:44:35,581 - DEBUG - Importing FtexImagePlugin
+2025-01-20 14:44:35,583 - DEBUG - Importing GbrImagePlugin
+2025-01-20 14:44:35,584 - DEBUG - Importing GifImagePlugin
+2025-01-20 14:44:35,584 - DEBUG - Importing GribStubImagePlugin
+2025-01-20 14:44:35,585 - DEBUG - Importing Hdf5StubImagePlugin
+2025-01-20 14:44:35,587 - DEBUG - Importing IcnsImagePlugin
+2025-01-20 14:44:35,591 - DEBUG - Importing IcoImagePlugin
+2025-01-20 14:44:35,592 - DEBUG - Importing ImImagePlugin
+2025-01-20 14:44:35,594 - DEBUG - Importing ImtImagePlugin
+2025-01-20 14:44:35,595 - DEBUG - Importing IptcImagePlugin
+2025-01-20 14:44:35,596 - DEBUG - Importing JpegImagePlugin
+2025-01-20 14:44:35,597 - DEBUG - Importing Jpeg2KImagePlugin
+2025-01-20 14:44:35,597 - DEBUG - Importing McIdasImagePlugin
+2025-01-20 14:44:35,598 - DEBUG - Importing MicImagePlugin
+2025-01-20 14:44:35,601 - DEBUG - Image: failed to import MicImagePlugin: No module named 'olefile'
+2025-01-20 14:44:35,601 - DEBUG - Importing MpegImagePlugin
+2025-01-20 14:44:35,603 - DEBUG - Importing MpoImagePlugin
+2025-01-20 14:44:35,610 - DEBUG - Importing MspImagePlugin
+2025-01-20 14:44:35,612 - DEBUG - Importing PalmImagePlugin
+2025-01-20 14:44:35,615 - DEBUG - Importing PcdImagePlugin
+2025-01-20 14:44:35,617 - DEBUG - Importing PcxImagePlugin
+2025-01-20 14:44:35,618 - DEBUG - Importing PdfImagePlugin
+2025-01-20 14:44:35,631 - DEBUG - Importing PixarImagePlugin
+2025-01-20 14:44:35,633 - DEBUG - Importing PngImagePlugin
+2025-01-20 14:44:35,633 - DEBUG - Importing PpmImagePlugin
+2025-01-20 14:44:35,633 - DEBUG - Importing PsdImagePlugin
+2025-01-20 14:44:35,635 - DEBUG - Importing QoiImagePlugin
+2025-01-20 14:44:35,636 - DEBUG - Importing SgiImagePlugin
+2025-01-20 14:44:35,637 - DEBUG - Importing SpiderImagePlugin
+2025-01-20 14:44:35,639 - DEBUG - Importing SunImagePlugin
+2025-01-20 14:44:35,640 - DEBUG - Importing TgaImagePlugin
+2025-01-20 14:44:35,641 - DEBUG - Importing TiffImagePlugin
+2025-01-20 14:44:35,642 - DEBUG - Importing WebPImagePlugin
+2025-01-20 14:44:35,645 - DEBUG - Importing WmfImagePlugin
+2025-01-20 14:44:35,647 - DEBUG - Importing XbmImagePlugin
+2025-01-20 14:44:35,652 - DEBUG - Importing XpmImagePlugin
+2025-01-20 14:44:35,654 - DEBUG - Importing XVThumbImagePlugin
+2025-01-20 14:44:44,749 - INFO - Toggle freeze for process: b1-Win64-Shipping.exe
+2025-01-20 14:44:44,749 - INFO - Current state: False
+2025-01-20 14:44:44,749 - INFO - New state: True
+2025-01-20 14:44:44,750 - INFO - Attempting to freeze process: b1-Win64-Shipping.exe
+2025-01-20 14:44:46,269 - INFO - Successfully froze process: b1-Win64-Shipping.exe
+2025-01-20 14:44:46,270 - ERROR - An error occurred when calling message handler
+Traceback (most recent call last):
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_win32.py", line 412, in _dispatcher
+    return int(icon._message_handlers.get(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_win32.py", line 224, in _on_notify
+    descriptors[index - 1](self)
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_base.py", line 328, in inner
+    callback(self)
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_base.py", line 453, in __call__
+    return self._action(icon, self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yedsn\AppData\Local\Programs\Python\Python312\Lib\site-packages\pystray\_base.py", line 548, in wrapper0
+    return action()
+           ^^^^^^^^
+  File "E:\Desktop\process-freezer\process_freezer.py", line 452, in <lambda>
+    return lambda: self.toggle_from_tray(process_id)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Desktop\process-freezer\process_freezer.py", line 509, in toggle_from_tray
+    self.tray_icon.menu = self.tray_icon._create_menu()
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Icon._create_menu() missing 2 required positional arguments: 'descriptors' and 'callbacks'
+2025-01-20 14:45:44,568 - DEBUG - Importing BlpImagePlugin
+2025-01-20 14:45:44,570 - DEBUG - Importing BmpImagePlugin
+2025-01-20 14:45:44,571 - DEBUG - Importing BufrStubImagePlugin
+2025-01-20 14:45:44,572 - DEBUG - Importing CurImagePlugin
+2025-01-20 14:45:44,573 - DEBUG - Importing DcxImagePlugin
+2025-01-20 14:45:44,575 - DEBUG - Importing DdsImagePlugin
+2025-01-20 14:45:44,581 - DEBUG - Importing EpsImagePlugin
+2025-01-20 14:45:44,583 - DEBUG - Importing FitsImagePlugin
+2025-01-20 14:45:44,584 - DEBUG - Importing FliImagePlugin
+2025-01-20 14:45:44,585 - DEBUG - Importing FpxImagePlugin
+2025-01-20 14:45:44,588 - DEBUG - Image: failed to import FpxImagePlugin: No module named 'olefile'
+2025-01-20 14:45:44,588 - DEBUG - Importing FtexImagePlugin
+2025-01-20 14:45:44,589 - DEBUG - Importing GbrImagePlugin
+2025-01-20 14:45:44,590 - DEBUG - Importing GifImagePlugin
+2025-01-20 14:45:44,591 - DEBUG - Importing GribStubImagePlugin
+2025-01-20 14:45:44,592 - DEBUG - Importing Hdf5StubImagePlugin
+2025-01-20 14:45:44,592 - DEBUG - Importing IcnsImagePlugin
+2025-01-20 14:45:44,596 - DEBUG - Importing IcoImagePlugin
+2025-01-20 14:45:44,600 - DEBUG - Importing ImImagePlugin
+2025-01-20 14:45:44,602 - DEBUG - Importing ImtImagePlugin
+2025-01-20 14:45:44,603 - DEBUG - Importing IptcImagePlugin
+2025-01-20 14:45:44,605 - DEBUG - Importing JpegImagePlugin
+2025-01-20 14:45:44,605 - DEBUG - Importing Jpeg2KImagePlugin
+2025-01-20 14:45:44,605 - DEBUG - Importing McIdasImagePlugin
+2025-01-20 14:45:44,607 - DEBUG - Importing MicImagePlugin
+2025-01-20 14:45:44,609 - DEBUG - Image: failed to import MicImagePlugin: No module named 'olefile'
+2025-01-20 14:45:44,609 - DEBUG - Importing MpegImagePlugin
+2025-01-20 14:45:44,610 - DEBUG - Importing MpoImagePlugin
+2025-01-20 14:45:44,622 - DEBUG - Importing MspImagePlugin
+2025-01-20 14:45:44,623 - DEBUG - Importing PalmImagePlugin
+2025-01-20 14:45:44,626 - DEBUG - Importing PcdImagePlugin
+2025-01-20 14:45:44,627 - DEBUG - Importing PcxImagePlugin
+2025-01-20 14:45:44,628 - DEBUG - Importing PdfImagePlugin
+2025-01-20 14:45:44,639 - DEBUG - Importing PixarImagePlugin
+2025-01-20 14:45:44,640 - DEBUG - Importing PngImagePlugin
+2025-01-20 14:45:44,640 - DEBUG - Importing PpmImagePlugin
+2025-01-20 14:45:44,640 - DEBUG - Importing PsdImagePlugin
+2025-01-20 14:45:44,642 - DEBUG - Importing QoiImagePlugin
+2025-01-20 14:45:44,643 - DEBUG - Importing SgiImagePlugin
+2025-01-20 14:45:44,645 - DEBUG - Importing SpiderImagePlugin
+2025-01-20 14:45:44,647 - DEBUG - Importing SunImagePlugin
+2025-01-20 14:45:44,648 - DEBUG - Importing TgaImagePlugin
+2025-01-20 14:45:44,650 - DEBUG - Importing TiffImagePlugin
+2025-01-20 14:45:44,650 - DEBUG - Importing WebPImagePlugin
+2025-01-20 14:45:44,653 - DEBUG - Importing WmfImagePlugin
+2025-01-20 14:45:44,654 - DEBUG - Importing XbmImagePlugin
+2025-01-20 14:45:44,657 - DEBUG - Importing XpmImagePlugin
+2025-01-20 14:45:44,658 - DEBUG - Importing XVThumbImagePlugin
+2025-01-20 14:45:50,873 - INFO - Toggle freeze for process: b1-Win64-Shipping.exe
+2025-01-20 14:45:50,874 - INFO - Current state: True
+2025-01-20 14:45:50,874 - INFO - New state: False
+2025-01-20 14:45:50,874 - INFO - Attempting to resume process: b1-Win64-Shipping.exe
+2025-01-20 14:45:51,783 - INFO - Successfully resumed process: b1-Win64-Shipping.exe
+2025-01-20 14:45:54,186 - INFO - Toggle freeze for process: b1-Win64-Shipping.exe
+2025-01-20 14:45:54,186 - INFO - Current state: False
+2025-01-20 14:45:54,187 - INFO - New state: True
+2025-01-20 14:45:54,187 - INFO - Attempting to freeze process: b1-Win64-Shipping.exe
+2025-01-20 14:45:55,760 - INFO - Successfully froze process: b1-Win64-Shipping.exe
