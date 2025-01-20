@@ -42,5 +42,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico'  # 设置程序图标
+    icon='assets/icon.ico'  # 设置程序图标
 )
