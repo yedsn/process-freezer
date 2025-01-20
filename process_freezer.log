@@ -31,3 +31,13 @@
 2025-01-20 13:57:38,303 - INFO - New state: False
 2025-01-20 13:57:38,303 - INFO - Attempting to resume process: b1-Win64-Shipping.exe
 2025-01-20 13:57:39,384 - INFO - Successfully resumed process: b1-Win64-Shipping.exe
+2025-01-20 14:02:58,480 - INFO - Toggle freeze for process: b1-Win64-Shipping.exe
+2025-01-20 14:02:58,490 - INFO - Current state: False
+2025-01-20 14:02:58,490 - INFO - New state: True
+2025-01-20 14:02:58,490 - INFO - Attempting to freeze process: b1-Win64-Shipping.exe
+2025-01-20 14:02:59,736 - INFO - Successfully froze process: b1-Win64-Shipping.exe
+2025-01-20 14:03:26,339 - INFO - Toggle freeze for process: b1-Win64-Shipping.exe
+2025-01-20 14:03:26,339 - INFO - Current state: True
+2025-01-20 14:03:26,340 - INFO - New state: False
+2025-01-20 14:03:26,340 - INFO - Attempting to resume process: b1-Win64-Shipping.exe
+2025-01-20 14:03:27,362 - INFO - Successfully resumed process: b1-Win64-Shipping.exe

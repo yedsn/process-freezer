@@ -25,15 +25,25 @@ class ProcessManager:
 
     def load_processes(self):
         if os.path.exists(self.config_file):
-            with open(self.config_file, 'r') as f:
-                self.processes = json.load(f)
+            try:
+                with open(self.config_file, 'r') as f:
+                    loaded_processes = json.load(f)
+                    # 确保所有进程都有name字段
+                    for proc_id, data in loaded_processes.items():
+                        if "name" not in data:
+                            data["name"] = proc_id  # 如果没有名称，使用进程ID作为默认名称
+                    self.processes = loaded_processes
+            except Exception as e:
+                logging.error(f"加载进程配置文件失败: {str(e)}")
+                self.processes = {}
 
     def save_processes(self):
         with open(self.config_file, 'w') as f:
             json.dump(self.processes, f)
 
-    def add_process(self, identifier, is_frozen=False):
+    def add_process(self, identifier, name="", is_frozen=False):
         self.processes[identifier] = {
+            "name": name,
             "is_frozen": is_frozen
         }
         self.save_processes()
@@ -142,16 +152,20 @@ class ProcessListWindow:
         for widget in self.list_frame.winfo_children():
             widget.destroy()
             
-        # Add process items
+        # Add new items
         for proc_id, data in self.process_manager.processes.items():
             item_frame = tk.Frame(self.list_frame)
-            item_frame.pack(fill=tk.X, pady=2)
+            item_frame.pack(fill=tk.X, padx=5, pady=2)
             
             # Process identifier label
             tk.Label(item_frame, text=proc_id).pack(side=tk.LEFT, padx=5)
             
+            # Process name label (with error handling)
+            process_name = data.get("name", proc_id)  # 如果没有name，使用proc_id
+            tk.Label(item_frame, text=process_name).pack(side=tk.LEFT, padx=5)
+            
             # Freeze checkbox
-            var = tk.BooleanVar(value=data["is_frozen"])
+            var = tk.BooleanVar(value=data.get("is_frozen", False))
             cb = tk.Checkbutton(item_frame, text="冻结", 
                               variable=var, 
                               command=lambda pid=proc_id, v=var: self.toggle_freeze(pid, v))
@@ -165,7 +179,7 @@ class ProcessListWindow:
         dialog = AddProcessDialog(self.window)
         self.window.wait_window(dialog.dialog)
         if dialog.result:
-            self.process_manager.add_process(dialog.result)
+            self.process_manager.add_process(dialog.result[0], dialog.result[1])
             self.update_process_list()
             
     def remove_process(self, process_id):
@@ -187,13 +201,18 @@ class AddProcessDialog:
     def __init__(self, parent):
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("添加进程")
-        self.dialog.geometry("300x100")
+        self.dialog.geometry("300x150")
         self.dialog.resizable(False, False)
         
         # Process identifier input
         tk.Label(self.dialog, text="进程标识符:").pack(pady=5)
         self.process_input = tk.Entry(self.dialog)
         self.process_input.pack(pady=5)
+        
+        # Process name input
+        tk.Label(self.dialog, text="进程名称:").pack(pady=5)
+        self.name_input = tk.Entry(self.dialog)
+        self.name_input.pack(pady=5)
         
         # Buttons
         button_frame = tk.Frame(self.dialog)
@@ -205,7 +224,7 @@ class AddProcessDialog:
         self.result = None
         
     def accept(self):
-        self.result = self.process_input.get().strip()
+        self.result = (self.process_input.get().strip(), self.name_input.get().strip())
         self.dialog.destroy()
         
     def cancel(self):
