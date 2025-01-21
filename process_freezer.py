@@ -499,49 +499,70 @@ class ProcessListWindow:
                 fill=fill_color
             )
         
-        # # 如果有冻结的进程，添加数字标记
-        # if frozen_count > 0:
-        #     # 创建一个新的图层用于绘制数字
-        #     txt_layer = Image.new('RGBA', image.size, (0, 0, 0, 0))
-        #     dc = ImageDraw.Draw(txt_layer)
+        # 如果有冻结的进程，添加数字标记
+        if frozen_count > 0:
+            # 创建一个新的图层用于绘制数字
+            txt_layer = Image.new('RGBA', image.size, (0, 0, 0, 0))
+            dc = ImageDraw.Draw(txt_layer)
             
-        #     # 计算文本大小和位置
-        #     text = str(frozen_count)
-        #     font_size = int(image.width * 0.7)  # 增大字体大小为图标宽度的70%
-        #     try:
-        #         font = ImageFont.truetype("arial.ttf", font_size)
-        #     except:
-        #         font = None
+            # 计算文本大小和位置
+            text = str(frozen_count)
+            font_size = int(image.width * 0.7)  # 增大字体大小为图标宽度的70%
+            try:
+                font = ImageFont.truetype("arial.ttf", font_size)
+            except:
+                font = None
                 
-        #     # 获取文本大小
-        #     if font:
-        #         text_bbox = dc.textbbox((0, 0), text, font=font)
-        #         text_width = text_bbox[2] - text_bbox[0]
-        #         text_height = text_bbox[3] - text_bbox[1]
-        #     else:
-        #         text_width = font_size
-        #         text_height = font_size
+            # 获取文本大小
+            if font:
+                text_bbox = dc.textbbox((0, 0), text, font=font)
+                text_width = text_bbox[2] - text_bbox[0]
+                text_height = text_bbox[3] - text_bbox[1]
+            else:
+                text_width = font_size
+                text_height = font_size
             
-        #     # 计算文本位置（右下角）
-        #     margin = image.width // 12  # 减小边距，使数字更靠近边缘
-        #     x = image.width - text_width - margin
-        #     y = image.height - text_height - margin
+            # 为阴影创建稍大的粗体字体
+            shadow_font_size = int(font_size * 1.5)  # 阴影字体大1.5倍
+            shadow_font = None
+            try:
+                # 尝试使用Arial Bold字体
+                shadow_font = ImageFont.truetype("arialbd.ttf", shadow_font_size)
+            except:
+                try:
+                    # 备选：使用Arial Bold的另一种写法
+                    shadow_font = ImageFont.truetype("arial bold", shadow_font_size)
+                except:
+                    shadow_font = font
+
+            # 获取阴影文本的大小
+            if shadow_font:
+                shadow_bbox = dc.textbbox((0, 0), text, font=shadow_font)
+                shadow_width = shadow_bbox[2] - shadow_bbox[0]
+                shadow_height = shadow_bbox[3] - shadow_bbox[1]
+            else:
+                shadow_width = shadow_font_size
+                shadow_height = shadow_font_size
+
+            # 计算阴影和主文本的中心点位置
+            center_x = image.width // 2
+            center_y = image.height // 2
+
+            # 计算阴影文本位置（使其居中）
+            shadow_x = center_x - shadow_width // 2
+            shadow_y = center_y - shadow_height // 1.4
+
+            # 计算主文本位置（使其居中）
+            main_x = center_x - text_width // 2
+            main_y = center_y - text_height // 1.5
+
+            # 绘制较大的阴影文本
+            dc.text((shadow_x, shadow_y), text, fill='#007bff', font=shadow_font)
+            # 绘制主文本
+            dc.text((main_x, main_y), text, fill='white', font=font)
             
-        #     # 绘制文本背景（红色圆形）
-        #     circle_radius = max(text_width, text_height) // 2 + 6  # 增加背景圆形的大小
-        #     circle_x = x + text_width // 2
-        #     circle_y = y + text_height // 2
-        #     dc.ellipse(
-        #         [circle_x - circle_radius, circle_y - circle_radius,
-        #          circle_x + circle_radius, circle_y + circle_radius],
-        #         fill='#FF0000'  # 使用红色背景
-        #     )
-            
-        #     # 绘制白色文本
-        #     dc.text((x, y), text, fill='#FFFFFF', font=font)  # 使用白色文本
-            
-        #     # 将文本图层合并到主图像
-        #     image = Image.alpha_composite(image, txt_layer)
+            # 将文本图层合并到主图像
+            image = Image.alpha_composite(image, txt_layer)
         
         return image
 
