@@ -12,6 +12,7 @@ import win32con
 import win32api
 import pystray
 from PIL import Image, ImageDraw, ImageFont
+import tkinter.colorchooser
 
 # 设置日志记录
 logging.basicConfig(
@@ -181,8 +182,41 @@ class DragHandle:
     def pack(self, **kwargs):
         self.handle.pack(**kwargs)
 
+class Settings:
+    def __init__(self):
+        self.config_file = "settings.json"
+        self.show_icon_count = True
+        self.icon_number_color = '#ffffff'  # white
+        self.icon_shadow_color = '#007bff'  # blue
+        self.load_settings()
+    
+    def load_settings(self):
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.show_icon_count = data.get('show_icon_count', True)
+                    self.icon_number_color = data.get('icon_number_color', '#ffffff')
+                    self.icon_shadow_color = data.get('icon_shadow_color', '#007bff')
+        except Exception as e:
+            logging.error(f"Failed to load settings: {e}")
+    
+    def save_settings(self):
+        try:
+            data = {
+                'show_icon_count': self.show_icon_count,
+                'icon_number_color': self.icon_number_color,
+                'icon_shadow_color': self.icon_shadow_color
+            }
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            logging.error(f"Failed to save settings: {e}")
+
 class ProcessListWindow:
     def __init__(self, process_manager):
+        self.settings = Settings()
+        self.process_manager = process_manager
         self.window = tk.Tk()
         self.window.title("进程冻结器")
         self.window.geometry("700x400")
@@ -201,8 +235,6 @@ class ProcessListWindow:
         self.default_font = ('Microsoft YaHei UI', 10)
         self.title_font = ('Microsoft YaHei UI', 12, 'bold')
         
-        self.process_manager = process_manager
-        
         # 创建托盘图标
         self.create_tray_icon()
         
@@ -210,13 +242,31 @@ class ProcessListWindow:
         main_frame = tk.Frame(self.window, bg='#f0f0f0')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
+        # 创建顶部框架（包含标题和设置按钮）
+        top_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        top_frame.pack(fill=tk.X)
+        
         # 标题
-        title_label = tk.Label(main_frame, 
+        title_label = tk.Label(top_frame, 
                              text="进程管理器", 
                              font=self.title_font,
                              bg='#f0f0f0',
                              fg='#333333')
-        title_label.pack(pady=(0, 10))
+        title_label.pack(side=tk.LEFT, pady=(0, 10))
+        
+        # 设置按钮（使用⚙符号）
+        settings_btn = tk.Label(top_frame,
+                              text="⚙",
+                              font=('Microsoft YaHei UI', 16),
+                              bg='#f0f0f0',
+                              fg='#666666',
+                              cursor="hand2")
+        settings_btn.pack(side=tk.RIGHT, pady=(0, 10))
+        
+        # 绑定鼠标事件
+        settings_btn.bind('<Button-1>', lambda e: self.show_settings_menu(e))
+        settings_btn.bind('<Enter>', lambda e: settings_btn.configure(fg='#007bff'))
+        settings_btn.bind('<Leave>', lambda e: settings_btn.configure(fg='#666666'))
         
         # 添加进程按钮（使用现代风格）
         add_button = tk.Button(main_frame,
@@ -470,38 +520,27 @@ class ProcessListWindow:
 
     def create_icon_image(self):
         """创建托盘图标图像"""
-        # 计算冻结的进程数量
-        frozen_count = sum(1 for data in self.process_manager.processes.values() if data.get("is_frozen", False))
+        frozen_count = len([p for p in self.process_manager.processes.values() if p['is_frozen']])
         
         # 根据是否有冻结进程选择图标
         if frozen_count > 0:
             icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
         else:
             icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon_inactive.ico")
-        
+
         if os.path.exists(icon_path):
-            # 使用PIL打开图标文件
             image = Image.open(icon_path)
-            # 转换为RGBA模式以支持透明度
             image = image.convert('RGBA')
         else:
-            # 创建默认的圆形图标
-            icon_size = 64
-            image = Image.new('RGBA', (icon_size, icon_size), (0, 0, 0, 0))
+            # 如果图标文件不存在，创建默认的圆形图标
+            image = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
             dc = ImageDraw.Draw(image)
-            margin = 4
-            
-            # 根据是否有冻结进程选择颜色
-            fill_color = '#007bff' if frozen_count > 0 else '#808080'
-            
-            dc.ellipse(
-                [margin, margin, icon_size - margin, icon_size - margin],
-                fill=fill_color
-            )
+            icon_color = '#007bff' if frozen_count > 0 else '#6c757d'
+            dc.ellipse([4, 4, 60, 60], fill=icon_color)
         
-        # 如果有冻结的进程，添加数字标记
-        if frozen_count > 0:
-            # 创建一个新的图层用于绘制数字
+        # 如果设置为显示数字且有冻结进程，则绘制数字
+        if self.settings.show_icon_count and frozen_count > 0:
+           # 创建一个新的图层用于绘制数字
             txt_layer = Image.new('RGBA', image.size, (0, 0, 0, 0))
             dc = ImageDraw.Draw(txt_layer)
             
@@ -557,9 +596,9 @@ class ProcessListWindow:
             main_y = center_y - text_height // 1.5
 
             # 绘制较大的阴影文本
-            dc.text((shadow_x, shadow_y), text, fill='#007bff', font=shadow_font)
+            dc.text((shadow_x, shadow_y), text, fill=self.settings.icon_shadow_color, font=shadow_font)
             # 绘制主文本
-            dc.text((main_x, main_y), text, fill='white', font=font)
+            dc.text((main_x, main_y), text, fill=self.settings.icon_number_color, font=font)
             
             # 将文本图层合并到主图像
             image = Image.alpha_composite(image, txt_layer)
@@ -669,6 +708,52 @@ class ProcessListWindow:
         if self.window.state() == 'iconic':
             self.minimize_to_tray()
 
+    def show_settings_menu(self, event):
+        """显示设置菜单"""
+        # 创建设置菜单
+        settings_menu = tk.Menu(self.window, tearoff=0)
+        
+        # 添加分组标题（不可点击）
+        settings_menu.add_command(label="托盘图标", state="disabled")
+        settings_menu.add_separator()
+        
+        # 显示图标数字选项
+        self.show_count_var = tk.BooleanVar(value=self.settings.show_icon_count)
+        settings_menu.add_checkbutton(label="    显示冻结数量", 
+                                    variable=self.show_count_var,
+                                    command=self.toggle_icon_count)
+        
+        # 颜色选择按钮
+        settings_menu.add_command(label="    设置数字颜色", command=self.set_number_color)
+        settings_menu.add_command(label="    设置阴影颜色", command=self.set_shadow_color)
+        
+        # 显示菜单
+        settings_menu.post(event.x_root, event.y_root)
+
+    def toggle_icon_count(self):
+        """切换是否显示图标数字"""
+        self.settings.show_icon_count = self.show_count_var.get()
+        self.settings.save_settings()
+        self.update_tray_icon()
+
+    def set_number_color(self):
+        """设置数字颜色"""
+        color = tk.colorchooser.askcolor(color=self.settings.icon_number_color,
+                                       title="选择数字颜色")
+        if color and color[1]:  # color[1] 是十六进制颜色值
+            self.settings.icon_number_color = color[1]
+            self.settings.save_settings()
+            self.update_tray_icon()
+
+    def set_shadow_color(self):
+        """设置阴影颜色"""
+        color = tk.colorchooser.askcolor(color=self.settings.icon_shadow_color,
+                                       title="选择阴影颜色")
+        if color and color[1]:  # color[1] 是十六进制颜色值
+            self.settings.icon_shadow_color = color[1]
+            self.settings.save_settings()
+            self.update_tray_icon()
+
 class AddProcessDialog:
     def __init__(self, parent):
         self.dialog = tk.Toplevel(parent)
@@ -770,7 +855,7 @@ class AddProcessDialog:
         for btn in [self.ok_button, self.cancel_button]:
             btn.bind('<Enter>', lambda e, b=btn: self.on_hover(e, b))
             btn.bind('<Leave>', lambda e, b=btn: self.on_leave(e, b))
-        
+
         self.result = None
         
         # 设置对话框为模态
