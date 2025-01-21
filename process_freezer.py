@@ -448,9 +448,13 @@ class ProcessListWindow:
             self.update_tray_icon()
             
     def remove_process(self, process_id):
-        self.process_manager.remove_process(process_id)
-        self.update_process_list()
-        self.update_tray_icon()
+        # 获取进程名称
+        process_name = self.process_manager.processes[process_id].get("name", process_id)
+        # 显示确认对话框
+        if messagebox.askokcancel("确认删除", f"确定要删除进程 {process_name} 吗？"):
+            self.process_manager.remove_process(process_id)
+            self.update_process_list()
+            self.update_tray_icon()
         
     def toggle_freeze(self, process_id, var):
         success = self.process_manager.toggle_freeze(process_id)
