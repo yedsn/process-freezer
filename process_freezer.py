@@ -140,6 +140,7 @@ class WindowHider:
     
     def get_process_id_by_name(self, process_name):
         """通过进程名称获取进程ID列表"""
+        logging.info(f"Attempting to get process ID for process: {process_name}")
         pids = []
         for proc in psutil.process_iter(['pid', 'name']):
             try:
@@ -147,6 +148,7 @@ class WindowHider:
                     pids.append(proc.info['pid'])
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
+        logging.info(f"Successfully got process ID for process: {process_name} as {pids}")
         return pids
     
     def hide_window_by_name(self, process_name):
@@ -157,12 +159,15 @@ class WindowHider:
     
     def show_windows_by_name(self, process_name):
         """根据进程名称显示窗口"""
+        logging.info(f"Attempting to show windows by process name: {process_name}")
         pids = self.get_process_id_by_name(process_name)
         for pid in pids:
             self.show_windows_by_pid(pid)
+        logging.info(f"Successfully showed windows by process name: {process_name}")
     
     def hide_window_by_pid(self, target_pid):
         """根据进程ID隐藏窗口"""
+        logging.info(f"Attempting to hide windows by pid: {target_pid}")
         def enum_window(hwnd, target_pid):
             if win32gui.IsWindowVisible(hwnd):
                 pid = self.get_window_process_id(hwnd)
@@ -186,6 +191,7 @@ class WindowHider:
                     )
         
         win32gui.EnumWindows(lambda hwnd, pid: enum_window(hwnd, pid), target_pid)
+        logging.info(f"Successfully hide windows by pid: {target_pid}")
     
     def show_windows_by_pid(self, target_pid):
         """根据进程ID显示窗口"""
