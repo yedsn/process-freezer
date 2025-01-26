@@ -25,9 +25,11 @@ logging.basicConfig(
 )
 
 class ProcessManager:
-    def __init__(self):
-        self.processes = {}
+    def __init__(self, settings):  # 修改：接收 settings 参数
         self.config_file = "processes.json"
+        self.processes = {}
+        self.settings = settings  # 使用传入的 settings 实例
+        self.window_hider = WindowHider()  
         self.load_processes()
 
     def load_processes(self):
@@ -72,26 +74,36 @@ class ProcessManager:
             try:
                 if new_state:  # Freeze
                     logging.info(f"Attempting to freeze process: {identifier}")
+                    # 如果启用了窗口隐藏功能，先隐藏窗口
+                    if self.settings.hide_window:
+                        self.window_hider.hide_window_by_name(identifier)
+                        
                     result = subprocess.run(['pssuspend64.exe', identifier], 
-                                         check=True, 
-                                         capture_output=True,
-                                         text=True,
-                                         creationflags=subprocess.CREATE_NO_WINDOW)
+                                     check=True, 
+                                     capture_output=True,
+                                     text=True,
+                                     creationflags=subprocess.CREATE_NO_WINDOW)
                     if result.returncode == 0:
                         self.processes[identifier]["is_frozen"] = True
                         logging.info(f"Successfully froze process: {identifier}")
                     else:
+                        # 如果冻结失败，恢复隐藏的窗口
+                        if self.settings.hide_window:
+                            self.window_hider.show_windows_by_name(identifier)
                         logging.error(f"Failed to freeze process: {result.stderr}")
                         raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
                 else:  # Resume
                     logging.info(f"Attempting to resume process: {identifier}")
                     result = subprocess.run(['pssuspend64.exe', '-r', identifier], 
-                                         check=True,
-                                         capture_output=True,
-                                         text=True,
-                                         creationflags=subprocess.CREATE_NO_WINDOW)
+                                     check=True,
+                                     capture_output=True,
+                                     text=True,
+                                     creationflags=subprocess.CREATE_NO_WINDOW)
                     if result.returncode == 0:
                         self.processes[identifier]["is_frozen"] = False
+                        # 如果启用了窗口隐藏功能，在解冻后恢复窗口
+                        if self.settings.hide_window:
+                            self.window_hider.show_windows_by_name(identifier)
                         logging.info(f"Successfully resumed process: {identifier}")
                     else:
                         logging.error(f"Failed to resume process: {result.stderr}")
@@ -99,6 +111,7 @@ class ProcessManager:
                 
                 self.save_processes()
                 return True
+                
             except subprocess.CalledProcessError as e:
                 logging.error(f"Error executing pssuspend64: {str(e)}")
                 messagebox.showerror("错误", f"执行进程{identifier}操作失败: {str(e)}")
@@ -108,6 +121,127 @@ class ProcessManager:
                 messagebox.showerror("错误", f"未知错误: {str(e)}")
                 return False
         return False
+
+class WindowHider:
+    def __init__(self):
+        self.hidden_windows = {}  # 存储被隐藏的窗口信息，格式：{进程ID: {hwnd: 窗口信息}}
+    
+    def get_window_title(self, hwnd):
+        """获取窗口标题"""
+        return win32gui.GetWindowText(hwnd)
+    
+    def get_window_process_id(self, hwnd):
+        """获取窗口对应的进程ID"""
+        try:
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            return pid
+        except:
+            return None
+    
+    def get_process_id_by_name(self, process_name):
+        """通过进程名称获取进程ID列表"""
+        pids = []
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if proc.info['name'].lower() == process_name.lower():
+                    pids.append(proc.info['pid'])
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        return pids
+    
+    def hide_window_by_name(self, process_name):
+        """根据进程名称隐藏窗口"""
+        pids = self.get_process_id_by_name(process_name)
+        for pid in pids:
+            self.hide_window_by_pid(pid)
+    
+    def show_windows_by_name(self, process_name):
+        """根据进程名称显示窗口"""
+        pids = self.get_process_id_by_name(process_name)
+        for pid in pids:
+            self.show_windows_by_pid(pid)
+    
+    def hide_window_by_pid(self, target_pid):
+        """根据进程ID隐藏窗口"""
+        def enum_window(hwnd, target_pid):
+            if win32gui.IsWindowVisible(hwnd):
+                pid = self.get_window_process_id(hwnd)
+                if pid == target_pid:
+                    # 保存窗口状态
+                    if target_pid not in self.hidden_windows:
+                        self.hidden_windows[target_pid] = {}
+                    self.hidden_windows[target_pid][hwnd] = {
+                        'title': self.get_window_title(hwnd),
+                        'is_foreground': hwnd == win32gui.GetForegroundWindow()
+                    }
+                    # 隐藏窗口
+                    win32gui.SetWindowPos(
+                        hwnd, 
+                        0, 
+                        0, 0, 0, 0,
+                        win32con.SWP_NOMOVE | 
+                        win32con.SWP_NOSIZE | 
+                        win32con.SWP_NOZORDER |
+                        win32con.SWP_HIDEWINDOW
+                    )
+        
+        win32gui.EnumWindows(lambda hwnd, pid: enum_window(hwnd, pid), target_pid)
+    
+    def show_windows_by_pid(self, target_pid):
+        """根据进程ID显示窗口"""
+        if target_pid in self.hidden_windows:
+            for hwnd, info in list(self.hidden_windows[target_pid].items()):
+                # 显示窗口
+                win32gui.SetWindowPos(
+                    hwnd, 
+                    0, 
+                    0, 0, 0, 0,
+                    win32con.SWP_NOMOVE | 
+                    win32con.SWP_NOSIZE | 
+                    win32con.SWP_NOZORDER |
+                    win32con.SWP_SHOWWINDOW
+                )
+                
+                # 如果之前是前台窗口，恢复其状态
+                if info['is_foreground']:
+                    win32gui.SetForegroundWindow(hwnd)
+            
+            # 清除该进程的所有隐藏窗口记录
+            del self.hidden_windows[target_pid]
+
+class Settings:
+    def __init__(self):
+        self.config_file = "settings.json"
+        self.show_icon_count = True
+        self.icon_number_color = '#ffffff'  # white
+        self.icon_shadow_color = '#007bff'  # blue
+        self.hide_window = False  # 新增：是否在冻结时隐藏窗口
+        self.load_settings()
+
+    def load_settings(self):
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.show_icon_count = data.get('show_icon_count', True)
+                    self.icon_number_color = data.get('icon_number_color', '#ffffff')
+                    self.icon_shadow_color = data.get('icon_shadow_color', '#007bff')
+                    self.hide_window = data.get('hide_window', False)
+        except Exception as e:
+            logging.error(f"Failed to load settings: {e}")
+
+    def save_settings(self):
+        try:
+            data = {
+                'show_icon_count': self.show_icon_count,
+                'icon_number_color': self.icon_number_color,
+                'icon_shadow_color': self.icon_shadow_color,
+                'hide_window': self.hide_window  # 新增：保存隐藏窗口设置
+            }
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            logging.error(f"Failed to save settings: {e}")
 
 class DragHandle:
     def __init__(self, parent, callback):
@@ -182,41 +316,11 @@ class DragHandle:
     def pack(self, **kwargs):
         self.handle.pack(**kwargs)
 
-class Settings:
-    def __init__(self):
-        self.config_file = "settings.json"
-        self.show_icon_count = True
-        self.icon_number_color = '#ffffff'  # white
-        self.icon_shadow_color = '#007bff'  # blue
-        self.load_settings()
-    
-    def load_settings(self):
-        try:
-            if os.path.exists(self.config_file):
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.show_icon_count = data.get('show_icon_count', True)
-                    self.icon_number_color = data.get('icon_number_color', '#ffffff')
-                    self.icon_shadow_color = data.get('icon_shadow_color', '#007bff')
-        except Exception as e:
-            logging.error(f"Failed to load settings: {e}")
-    
-    def save_settings(self):
-        try:
-            data = {
-                'show_icon_count': self.show_icon_count,
-                'icon_number_color': self.icon_number_color,
-                'icon_shadow_color': self.icon_shadow_color
-            }
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=4)
-        except Exception as e:
-            logging.error(f"Failed to save settings: {e}")
-
 class ProcessListWindow:
     def __init__(self, process_manager):
         self.settings = Settings()
         self.process_manager = process_manager
+        self.process_manager.settings = self.settings  # 确保 ProcessManager 使用相同的 settings 实例
         self.window = tk.Tk()
         self.window.title("进程冻结器")
         self.window.geometry("700x400")
@@ -720,12 +824,23 @@ class ProcessListWindow:
         # 显示图标数字选项
         self.show_count_var = tk.BooleanVar(value=self.settings.show_icon_count)
         settings_menu.add_checkbutton(label="    显示冻结数量", 
-                                    variable=self.show_count_var,
-                                    command=self.toggle_icon_count)
+                                variable=self.show_count_var,
+                                command=self.toggle_icon_count)
         
         # 颜色选择按钮
         settings_menu.add_command(label="    设置数字颜色", command=self.set_number_color)
         settings_menu.add_command(label="    设置阴影颜色", command=self.set_shadow_color)
+        
+        # 添加进程冻结设置分组
+        settings_menu.add_separator()
+        settings_menu.add_command(label="进程冻结", state="disabled")
+        settings_menu.add_separator()
+        
+        # 添加隐藏窗口选项
+        self.hide_window_var = tk.BooleanVar(value=self.settings.hide_window)
+        settings_menu.add_checkbutton(label="    冻结时隐藏窗口", 
+                                    variable=self.hide_window_var,
+                                    command=self.toggle_hide_window)
         
         # 显示菜单
         settings_menu.post(event.x_root, event.y_root)
@@ -735,6 +850,11 @@ class ProcessListWindow:
         self.settings.show_icon_count = self.show_count_var.get()
         self.settings.save_settings()
         self.update_tray_icon()
+
+    def toggle_hide_window(self):
+        """切换是否在冻结时隐藏窗口"""
+        self.settings.hide_window = self.hide_window_var.get()
+        self.settings.save_settings()
 
     def set_number_color(self):
         """设置数字颜色"""
@@ -903,6 +1023,7 @@ class AddProcessDialog:
         self.dialog.destroy()
 
 if __name__ == '__main__':
-    process_manager = ProcessManager()
+    settings = Settings()  # 新增：创建 Settings 实例
+    process_manager = ProcessManager(settings)  # 传入 settings 实例
     app = ProcessListWindow(process_manager)
     app.run()
