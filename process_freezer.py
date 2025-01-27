@@ -221,7 +221,8 @@ class Settings:
         self.show_icon_count = True
         self.icon_number_color = '#ffffff'  # white
         self.icon_shadow_color = '#007bff'  # blue
-        self.hide_window = False  # 新增：是否在冻结时隐藏窗口
+        self.hide_window = False  # 在冻结时隐藏窗口
+        self.always_on_top = False  # 新增：窗口置顶设置
         self.load_settings()
 
     def load_settings(self):
@@ -233,6 +234,7 @@ class Settings:
                     self.icon_number_color = data.get('icon_number_color', '#ffffff')
                     self.icon_shadow_color = data.get('icon_shadow_color', '#007bff')
                     self.hide_window = data.get('hide_window', False)
+                    self.always_on_top = data.get('always_on_top', False)  # 新增：加载置顶设置
         except Exception as e:
             logging.error(f"Failed to load settings: {e}")
 
@@ -242,7 +244,8 @@ class Settings:
                 'show_icon_count': self.show_icon_count,
                 'icon_number_color': self.icon_number_color,
                 'icon_shadow_color': self.icon_shadow_color,
-                'hide_window': self.hide_window  # 新增：保存隐藏窗口设置
+                'hide_window': self.hide_window,
+                'always_on_top': self.always_on_top  # 新增：保存置顶设置
             }
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=4)
@@ -433,6 +436,9 @@ class ProcessListWindow:
         for btn in [add_button, minimize_btn, quit_btn]:
             btn.bind('<Enter>', lambda e, b=btn: self.on_hover(e, b))
             btn.bind('<Leave>', lambda e, b=btn: self.on_leave(e, b))
+
+        # 设置窗口置顶状态
+        self.set_window_on_top(self.settings.always_on_top)
 
     def on_hover(self, event, button):
         # 鼠标悬停时改变按钮颜色
@@ -801,6 +807,8 @@ class ProcessListWindow:
         self.window.state('normal')  # 确保窗口不是最小化状态
         self.window.lift()  # 将窗口提升到顶层
         self.window.focus_force()  # 强制获取焦点
+        # 恢复置顶状态
+        self.set_window_on_top(self.settings.always_on_top)
 
     def quit_app(self):
         """退出应用程序"""
@@ -848,6 +856,17 @@ class ProcessListWindow:
                                     variable=self.hide_window_var,
                                     command=self.toggle_hide_window)
         
+        # 添加窗口设置分组
+        settings_menu.add_separator()
+        settings_menu.add_command(label="窗口设置", state="disabled")
+        settings_menu.add_separator()
+        
+        # 添加窗口置顶选项
+        self.always_on_top_var = tk.BooleanVar(value=self.settings.always_on_top)
+        settings_menu.add_checkbutton(label="    窗口置顶", 
+                                    variable=self.always_on_top_var,
+                                    command=self.toggle_window_on_top)
+        
         # 显示菜单
         settings_menu.post(event.x_root, event.y_root)
 
@@ -879,6 +898,17 @@ class ProcessListWindow:
             self.settings.icon_shadow_color = color[1]
             self.settings.save_settings()
             self.update_tray_icon()
+
+    def set_window_on_top(self, on_top):
+        """设置窗口置顶状态"""
+        self.window.attributes('-topmost', on_top)
+        self.settings.always_on_top = on_top
+        self.settings.save_settings()
+
+    def toggle_window_on_top(self):
+        """切换窗口置顶状态"""
+        on_top = self.always_on_top_var.get()
+        self.set_window_on_top(on_top)
 
 class AddProcessDialog:
     def __init__(self, parent):
