@@ -598,18 +598,25 @@ class ProcessListWindow:
     def quit_app(self):
         """退出应用程序"""
         try:
-            # 清除所有快捷键绑定
-            keyboard.unhook_all()
-            # 停止托盘图标
-            if hasattr(self, 'tray_icon'):
-                self.tray_icon.stop()
-            # 销毁主窗口
-            self.window.destroy()
-            # 退出程序
-            sys.exit(0)
+            # 确认是否要退出
+            if messagebox.askokcancel("确认退出", "确定要退出程序吗？"):
+                # 清除所有快捷键绑定
+                keyboard.unhook_all()
+                
+                # 停止托盘图标
+                if hasattr(self, 'tray_icon'):
+                    self.tray_icon.stop()
+                
+                # 销毁主窗口
+                self.window.quit()
+                self.window.destroy()
+                
+                # 正常退出程序
+                os._exit(0)
         except Exception as e:
             logging.error(f"Error quitting app: {e}")
-            sys.exit(1)
+            # 如果出现异常，强制退出
+            os._exit(1)
 
     def add_process(self):
         dialog = AddProcessDialog(self.window)
