@@ -13,6 +13,7 @@ import win32api
 import pystray
 from PIL import Image, ImageDraw, ImageFont
 import tkinter.colorchooser
+import keyboard  # 添加到文件顶部的导入部分
 
 # 设置日志记录
 logging.basicConfig(
@@ -222,7 +223,8 @@ class Settings:
         self.icon_number_color = '#ffffff'  # white
         self.icon_shadow_color = '#007bff'  # blue
         self.hide_window = False  # 在冻结时隐藏窗口
-        self.always_on_top = False  # 新增：窗口置顶设置
+        self.always_on_top = False
+        self.toggle_hotkey = 'ctrl+alt+f'  # 新增：默认快捷键
         self.load_settings()
 
     def load_settings(self):
@@ -234,7 +236,8 @@ class Settings:
                     self.icon_number_color = data.get('icon_number_color', '#ffffff')
                     self.icon_shadow_color = data.get('icon_shadow_color', '#007bff')
                     self.hide_window = data.get('hide_window', False)
-                    self.always_on_top = data.get('always_on_top', False)  # 新增：加载置顶设置
+                    self.always_on_top = data.get('always_on_top', False)
+                    self.toggle_hotkey = data.get('toggle_hotkey', 'ctrl+alt+f')  # 新增：加载快捷键设置
         except Exception as e:
             logging.error(f"Failed to load settings: {e}")
 
@@ -245,7 +248,8 @@ class Settings:
                 'icon_number_color': self.icon_number_color,
                 'icon_shadow_color': self.icon_shadow_color,
                 'hide_window': self.hide_window,
-                'always_on_top': self.always_on_top  # 新增：保存置顶设置
+                'always_on_top': self.always_on_top,
+                'toggle_hotkey': self.toggle_hotkey  # 新增：保存快捷键设置
             }
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=4)
@@ -439,6 +443,9 @@ class ProcessListWindow:
 
         # 设置窗口置顶状态
         self.set_window_on_top(self.settings.always_on_top)
+
+        # 注册全局快捷键
+        self.register_hotkey()
 
     def on_hover(self, event, button):
         # 鼠标悬停时改变按钮颜色
@@ -812,6 +819,8 @@ class ProcessListWindow:
 
     def quit_app(self):
         """退出应用程序"""
+        # 清除所有快捷键绑定
+        keyboard.unhook_all()
         # 先停止托盘图标
         if hasattr(self, 'tray_icon'):
             self.tray_icon.stop()
@@ -867,6 +876,15 @@ class ProcessListWindow:
                                     variable=self.always_on_top_var,
                                     command=self.toggle_window_on_top)
         
+        # 添加快捷键设置分组
+        settings_menu.add_separator()
+        settings_menu.add_command(label="快捷键设置", state="disabled")
+        settings_menu.add_separator()
+        
+        # 添加修改快捷键选项
+        settings_menu.add_command(label="    修改显示/隐藏快捷键", 
+                                command=self.set_toggle_hotkey)
+        
         # 显示菜单
         settings_menu.post(event.x_root, event.y_root)
 
@@ -909,6 +927,40 @@ class ProcessListWindow:
         """切换窗口置顶状态"""
         on_top = self.always_on_top_var.get()
         self.set_window_on_top(on_top)
+
+    def register_hotkey(self):
+        """注册全局快捷键"""
+        try:
+            # 先清除已有的快捷键绑定
+            keyboard.unhook_all()
+            # 注册新的快捷键
+            keyboard.add_hotkey(self.settings.toggle_hotkey, self.toggle_window_visibility)
+            logging.info(f"Registered global hotkey: {self.settings.toggle_hotkey}")
+        except Exception as e:
+            logging.error(f"Failed to register hotkey: {e}")
+            messagebox.showerror("错误", f"注册快捷键失败: {str(e)}")
+
+    def toggle_window_visibility(self):
+        """切换窗口显示/隐藏状态"""
+        if self.window.winfo_viewable():
+            self.minimize_to_tray()
+        else:
+            self.show_window()
+
+    def set_toggle_hotkey(self):
+        """设置显示/隐藏快捷键"""
+        dialog = HotkeyDialog(self.window, self.settings.toggle_hotkey)
+        self.window.wait_window(dialog.dialog)
+        if dialog.result:
+            try:
+                # 更新快捷键设置
+                self.settings.toggle_hotkey = dialog.result
+                self.settings.save_settings()
+                # 重新注册快捷键
+                self.register_hotkey()
+                messagebox.showinfo("成功", f"快捷键已更新为: {dialog.result}")
+            except Exception as e:
+                messagebox.showerror("错误", f"设置快捷键失败: {str(e)}")
 
 class AddProcessDialog:
     def __init__(self, parent):
@@ -1057,6 +1109,114 @@ class AddProcessDialog:
     def cancel(self):
         """取消按钮回调"""
         self.dialog.destroy()
+
+# 新增：快捷键设置对话框
+class HotkeyDialog:
+    def __init__(self, parent, current_hotkey):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("设置快捷键")
+        self.dialog.geometry("400x200")
+        self.dialog.configure(bg='#f0f0f0')
+        self.dialog.resizable(False, False)
+        
+        self.default_font = ('Microsoft YaHei UI', 10)
+        self.result = None
+        
+        # 主框架
+        main_frame = tk.Frame(self.dialog, bg='#f0f0f0')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # 说明标签
+        instruction = tk.Label(main_frame,
+                             text="请按下新的快捷键组合\n当前快捷键: " + current_hotkey,
+                             font=self.default_font,
+                             bg='#f0f0f0',
+                             fg='#333333')
+        instruction.pack(pady=20)
+        
+        # 快捷键显示框
+        self.hotkey_var = tk.StringVar(value="按下快捷键...")
+        self.hotkey_label = tk.Label(main_frame,
+                                   textvariable=self.hotkey_var,
+                                   font=('Microsoft YaHei UI', 12, 'bold'),
+                                   bg='white',
+                                   fg='#007bff',
+                                   relief=tk.SUNKEN,
+                                   padx=10,
+                                   pady=5)
+        self.hotkey_label.pack(pady=20)
+        
+        # 按钮框架
+        button_frame = tk.Frame(main_frame, bg='#f0f0f0')
+        button_frame.pack(pady=10)
+        
+        # 确定按钮
+        self.ok_button = tk.Button(button_frame,
+                                 text="确定",
+                                 command=self.ok,
+                                 font=self.default_font,
+                                 bg='#007bff',
+                                 fg='white',
+                                 relief=tk.FLAT,
+                                 width=10,
+                                 state=tk.DISABLED)
+        self.ok_button.pack(side=tk.LEFT, padx=5)
+        
+        # 取消按钮
+        self.cancel_button = tk.Button(button_frame,
+                                     text="取消",
+                                     command=self.cancel,
+                                     font=self.default_font,
+                                     bg='#6c757d',
+                                     fg='white',
+                                     relief=tk.FLAT,
+                                     width=10)
+        self.cancel_button.pack(side=tk.LEFT, padx=5)
+        
+        # 开始监听按键
+        self.current_keys = set()
+        keyboard.hook(self.on_key_event)
+        
+        # 设置对话框为模态
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+    def on_key_event(self, event):
+        """处理按键事件"""
+        try:
+            if not self.dialog.winfo_exists():  # 检查对话框是否还存在
+                return
+                
+            if event.event_type == 'down':
+                self.current_keys.add(event.name)
+            elif event.event_type == 'up':
+                if event.name in self.current_keys:
+                    self.current_keys.remove(event.name)
+                
+                if not self.current_keys:  # 当所有键都释放时
+                    if len(set(event.name) | self.current_keys) > 1:  # 确保不是单个按键
+                        hotkey = '+'.join(sorted(set(event.name) | self.current_keys))
+                        self.hotkey_var.set(hotkey)
+                        if self.ok_button.winfo_exists():  # 检查按钮是否还存在
+                            self.ok_button.configure(state=tk.NORMAL)
+        except Exception as e:
+            logging.error(f"Error in hotkey dialog: {str(e)}")
+            keyboard.unhook_all()  # 出错时清理键盘钩子
+    
+    def ok(self):
+        """确定按钮回调"""
+        try:
+            self.result = self.hotkey_var.get()
+        finally:
+            keyboard.unhook_all()  # 确保在任何情况下都清理键盘钩子
+            self.dialog.destroy()
+    
+    def cancel(self):
+        """取消按钮回调"""
+        try:
+            keyboard.unhook_all()  # 清理键盘钩子
+        finally:
+            self.dialog.destroy()
 
 if __name__ == '__main__':
     settings = Settings()  # 新增：创建 Settings 实例
