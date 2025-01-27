@@ -590,27 +590,26 @@ class ProcessListWindow:
 
     def minimize_to_tray(self):
         """最小化到托盘"""
-        self.window.withdraw()  # 隐藏窗口
+        try:
+            self.window.withdraw()  # 隐藏窗口
+        except Exception as e:
+            logging.error(f"Error minimizing to tray: {e}")
     
     def quit_app(self):
-        if messagebox.askokcancel("确认", "确定要退出程序吗？"):
-            # 先停止托盘图标
+        """退出应用程序"""
+        try:
+            # 清除所有快捷键绑定
+            keyboard.unhook_all()
+            # 停止托盘图标
             if hasattr(self, 'tray_icon'):
                 self.tray_icon.stop()
             # 销毁主窗口
-            self.window.quit()
+            self.window.destroy()
             # 退出程序
             sys.exit(0)
-    
-    def quit_from_tray(self):
-        """从托盘菜单退出程序"""
-        # 先停止托盘图标
-        if hasattr(self, 'tray_icon'):
-            self.tray_icon.stop()
-        # 销毁主窗口
-        self.window.quit()
-        # 退出程序
-        sys.exit(0)
+        except Exception as e:
+            logging.error(f"Error quitting app: {e}")
+            sys.exit(1)
 
     def add_process(self):
         dialog = AddProcessDialog(self.window)
@@ -766,7 +765,7 @@ class ProcessListWindow:
                 ),
                 pystray.MenuItem(
                     "退出",
-                    self.quit_from_tray  # 使用专门的托盘退出函数
+                    self.quit_app  # 使用专门的托盘退出函数
                 )
             ])
             
@@ -810,24 +809,15 @@ class ProcessListWindow:
 
     def show_window(self):
         """显示主窗口"""
-        self.window.deiconify()  # 显示窗口
-        self.window.state('normal')  # 确保窗口不是最小化状态
-        self.window.lift()  # 将窗口提升到顶层
-        self.window.focus_force()  # 强制获取焦点
-        # 恢复置顶状态
-        self.set_window_on_top(self.settings.always_on_top)
-
-    def quit_app(self):
-        """退出应用程序"""
-        # 清除所有快捷键绑定
-        keyboard.unhook_all()
-        # 先停止托盘图标
-        if hasattr(self, 'tray_icon'):
-            self.tray_icon.stop()
-        # 销毁主窗口
-        self.window.quit()
-        # 退出程序
-        sys.exit(0)
+        try:
+            self.window.deiconify()  # 显示窗口
+            self.window.state('normal')  # 确保窗口不是最小化状态
+            self.window.lift()  # 将窗口提升到顶层
+            self.window.focus_force()  # 强制获取焦点
+            # 恢复置顶状态
+            self.set_window_on_top(self.settings.always_on_top)
+        except Exception as e:
+            logging.error(f"Error showing window: {e}")
 
     def handle_minimize(self, event):
         """处理最小化事件"""
@@ -933,8 +923,12 @@ class ProcessListWindow:
         try:
             # 先清除已有的快捷键绑定
             keyboard.unhook_all()
-            # 注册新的快捷键
-            keyboard.add_hotkey(self.settings.toggle_hotkey, self.toggle_window_visibility)
+            # 注册新的快捷键，使用suppress=True来阻止事件传播
+            keyboard.add_hotkey(
+                self.settings.toggle_hotkey, 
+                self.toggle_window_visibility, 
+                suppress=True  # 阻止事件传播到其他应用
+            )
             logging.info(f"Registered global hotkey: {self.settings.toggle_hotkey}")
         except Exception as e:
             logging.error(f"Failed to register hotkey: {e}")
@@ -942,10 +936,13 @@ class ProcessListWindow:
 
     def toggle_window_visibility(self):
         """切换窗口显示/隐藏状态"""
-        if self.window.winfo_viewable():
-            self.minimize_to_tray()
-        else:
-            self.show_window()
+        try:
+            if self.window.state() == 'withdrawn' or not self.window.winfo_viewable():
+                self.show_window()
+            else:
+                self.minimize_to_tray()
+        except Exception as e:
+            logging.error(f"Error toggling window visibility: {e}")
 
     def set_toggle_hotkey(self):
         """设置显示/隐藏快捷键"""
