@@ -14,16 +14,101 @@ import pystray
 from PIL import Image, ImageDraw, ImageFont
 import tkinter.colorchooser
 import keyboard  # 添加到文件顶部的导入部分
+import traceback
+from datetime import datetime
 
-# 设置日志记录
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('process_freezer.log'),
-        logging.StreamHandler()
-    ]
-)
+# 修改日志配置部分
+def setup_logging():
+    """配置日志记录器"""
+    # 创建logs目录（如果不存在）
+    log_dir = "logs"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    # 清理旧日志文件
+    def cleanup_old_logs():
+        try:
+            # 检查上次清理时间
+            last_cleanup_file = os.path.join(log_dir, ".last_cleanup")
+            current_time = datetime.now()
+            
+            # 检查是否需要清理
+            should_cleanup = True
+            if os.path.exists(last_cleanup_file):
+                try:
+                    with open(last_cleanup_file, 'r') as f:
+                        last_cleanup_str = f.read().strip()
+                        last_cleanup = datetime.fromisoformat(last_cleanup_str)
+                        # 如果距离上次清理不足24小时，则跳过
+                        if (current_time - last_cleanup).total_seconds() < 24 * 3600:
+                            should_cleanup = False
+                except Exception:
+                    # 如果读取失败，执行清理
+                    pass
+            
+            if should_cleanup:
+                # 遍历日志目录
+                for filename in os.listdir(log_dir):
+                    if filename.startswith('process_freezer_') and filename.endswith('.log'):
+                        file_path = os.path.join(log_dir, filename)
+                        # 获取文件最后修改时间
+                        file_time = datetime.fromtimestamp(os.path.getmtime(file_path))
+                        # 如果文件超过7天，则删除
+                        if (current_time - file_time).days > 7:
+                            try:
+                                os.remove(file_path)
+                                print(f"Removed old log file: {filename}")
+                            except Exception as e:
+                                print(f"Failed to remove old log file {filename}: {str(e)}")
+                
+                # 更新最后清理时间
+                try:
+                    with open(last_cleanup_file, 'w') as f:
+                        f.write(current_time.isoformat())
+                except Exception as e:
+                    print(f"Failed to update last cleanup time: {str(e)}")
+                    
+        except Exception as e:
+            print(f"Error during log cleanup: {str(e)}")
+    
+    # 执行日志清理
+    cleanup_old_logs()
+    
+    # 生成日志文件名（包含日期）
+    date_str = datetime.now().strftime("%Y%m%d")
+    general_log = os.path.join(log_dir, f'process_freezer_{date_str}.log')
+    error_log = os.path.join(log_dir, f'process_freezer_error_{date_str}.log')
+    
+    # 配置根日志记录器
+    logging.getLogger().setLevel(logging.DEBUG)
+    
+    # 创建格式化器
+    formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s'
+    )
+    
+    # 配置一般日志处理器
+    file_handler = logging.FileHandler(general_log, encoding='utf-8')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    
+    # 配置错误日志处理器
+    error_handler = logging.FileHandler(error_log, encoding='utf-8')
+    error_handler.setLevel(logging.ERROR)
+    error_handler.setFormatter(formatter)
+    
+    # 配置控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(formatter)
+    
+    # 添加处理器到根日志记录器
+    logging.getLogger().addHandler(file_handler)
+    logging.getLogger().addHandler(error_handler)
+    logging.getLogger().addHandler(console_handler)
+
+# 在文件开头调用setup_logging
+setup_logging()
 
 class ProcessManager:
     def __init__(self, settings):  # 修改：接收 settings 参数
@@ -591,31 +676,46 @@ class ProcessListWindow:
     def minimize_to_tray(self):
         """最小化到托盘"""
         try:
-            self.window.withdraw()  # 隐藏窗口
+            if self.window.winfo_exists():  # 确保窗口还存在
+                self.window.withdraw()  # 隐藏窗口
+                logging.info("Window minimized to tray successfully")
         except Exception as e:
-            logging.error(f"Error minimizing to tray: {e}")
+            error_msg = f"Failed to minimize window to tray: {str(e)}"
+            logging.error(error_msg)
+            logging.error(f"Traceback:\n{traceback.format_exc()}")
     
     def quit_app(self):
         """退出应用程序"""
         try:
-            # 确认是否要退出
             if messagebox.askokcancel("确认退出", "确定要退出程序吗？"):
-                # 清除所有快捷键绑定
-                keyboard.unhook_all()
+                logging.info("User confirmed application exit")
                 
-                # 停止托盘图标
-                if hasattr(self, 'tray_icon'):
-                    self.tray_icon.stop()
+                try:
+                    keyboard.unhook_all()
+                    logging.info("All keyboard hooks cleared")
+                except Exception as e:
+                    logging.error(f"Error clearing keyboard hooks: {str(e)}")
                 
-                # 销毁主窗口
-                self.window.quit()
-                self.window.destroy()
+                try:
+                    if hasattr(self, 'tray_icon'):
+                        self.tray_icon.stop()
+                        logging.info("Tray icon stopped")
+                except Exception as e:
+                    logging.error(f"Error stopping tray icon: {str(e)}")
                 
-                # 正常退出程序
+                try:
+                    self.window.quit()
+                    self.window.destroy()
+                    logging.info("Main window destroyed")
+                except Exception as e:
+                    logging.error(f"Error destroying window: {str(e)}")
+                
+                logging.info("Application exit successful")
                 os._exit(0)
         except Exception as e:
-            logging.error(f"Error quitting app: {e}")
-            # 如果出现异常，强制退出
+            error_msg = f"Critical error during application exit: {str(e)}"
+            logging.error(error_msg)
+            logging.error(f"Traceback:\n{traceback.format_exc()}")
             os._exit(1)
 
     def add_process(self):
@@ -821,10 +921,17 @@ class ProcessListWindow:
             self.window.state('normal')  # 确保窗口不是最小化状态
             self.window.lift()  # 将窗口提升到顶层
             self.window.focus_force()  # 强制获取焦点
-            # 恢复置顶状态
-            self.set_window_on_top(self.settings.always_on_top)
+            
+            # 添加短暂延迟后再设置置顶状态
+            self.window.after(100, lambda: self.set_window_on_top(self.settings.always_on_top))
+            
+            # 更新进程列表
+            self.update_process_list()
+            logging.info("Window shown successfully")
         except Exception as e:
-            logging.error(f"Error showing window: {e}")
+            error_msg = f"Failed to show window: {str(e)}"
+            logging.error(error_msg)
+            logging.error(f"Traceback:\n{traceback.format_exc()}")
 
     def handle_minimize(self, event):
         """处理最小化事件"""
@@ -930,26 +1037,40 @@ class ProcessListWindow:
         try:
             # 先清除已有的快捷键绑定
             keyboard.unhook_all()
-            # 注册新的快捷键，使用suppress=True来阻止事件传播
+            logging.info("Previous hotkeys cleared")
+            
+            # 创建一个专门的回调函数，避免直接使用类方法
+            def hotkey_callback():
+                try:
+                    if self.window.winfo_exists():  # 确保窗口还存在
+                        current_state = self.window.state()
+                        is_visible = self.window.winfo_viewable()
+                        logging.debug(f"Window state: {current_state}, Visible: {is_visible}")
+                        
+                        if current_state == 'withdrawn' or not is_visible:
+                            logging.info("Hotkey pressed: Showing window")
+                            self.window.after(0, self.show_window)
+                        else:
+                            logging.info("Hotkey pressed: Minimizing window")
+                            self.window.after(0, self.minimize_to_tray)
+                except Exception as e:
+                    error_msg = f"Error in hotkey callback: {str(e)}"
+                    logging.error(error_msg)
+                    logging.error(f"Traceback:\n{traceback.format_exc()}")
+            
+            # 注册新的快捷键
             keyboard.add_hotkey(
                 self.settings.toggle_hotkey, 
-                self.toggle_window_visibility, 
-                suppress=True  # 阻止事件传播到其他应用
+                hotkey_callback,
+                suppress=True,
+                trigger_on_release=True
             )
-            logging.info(f"Registered global hotkey: {self.settings.toggle_hotkey}")
+            logging.info(f"Global hotkey registered successfully: {self.settings.toggle_hotkey}")
         except Exception as e:
-            logging.error(f"Failed to register hotkey: {e}")
+            error_msg = f"Failed to register hotkey: {str(e)}"
+            logging.error(error_msg)
+            logging.error(f"Traceback:\n{traceback.format_exc()}")
             messagebox.showerror("错误", f"注册快捷键失败: {str(e)}")
-
-    def toggle_window_visibility(self):
-        """切换窗口显示/隐藏状态"""
-        try:
-            if self.window.state() == 'withdrawn' or not self.window.winfo_viewable():
-                self.show_window()
-            else:
-                self.minimize_to_tray()
-        except Exception as e:
-            logging.error(f"Error toggling window visibility: {e}")
 
     def set_toggle_hotkey(self):
         """设置显示/隐藏快捷键"""
