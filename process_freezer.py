@@ -529,8 +529,13 @@ class ProcessListWindow:
         # 设置窗口置顶状态
         self.set_window_on_top(self.settings.always_on_top)
 
-        # 注册全局快捷键
-        self.register_hotkey()
+        # 添加快捷键状态标志
+        self.hotkey_registered = False
+        self.hotkey_retry_count = 0
+        self.MAX_RETRY_COUNT = 3
+        
+        # 在初始化结束时注册快捷键
+        self.window.after(1000, self.ensure_hotkey_registered)  # 延迟1秒注册
 
     def on_hover(self, event, button):
         # 鼠标悬停时改变按钮颜色
@@ -690,8 +695,10 @@ class ProcessListWindow:
             if messagebox.askokcancel("确认退出", "确定要退出程序吗？"):
                 logging.info("User confirmed application exit")
                 
+                # 确保在退出前清理所有快捷键
                 try:
                     keyboard.unhook_all()
+                    self.hotkey_registered = False
                     logging.info("All keyboard hooks cleared")
                 except Exception as e:
                     logging.error(f"Error clearing keyboard hooks: {str(e)}")
@@ -1032,6 +1039,17 @@ class ProcessListWindow:
         on_top = self.always_on_top_var.get()
         self.set_window_on_top(on_top)
 
+    def ensure_hotkey_registered(self):
+        """确保快捷键被正确注册"""
+        try:
+            if not self.hotkey_registered:
+                self.register_hotkey()
+            
+            # 定期检查快捷键状态
+            self.window.after(30000, self.ensure_hotkey_registered)  # 每30秒检查一次
+        except Exception as e:
+            logging.error(f"Error in ensure_hotkey_registered: {str(e)}")
+
     def register_hotkey(self):
         """注册全局快捷键"""
         try:
@@ -1039,38 +1057,60 @@ class ProcessListWindow:
             keyboard.unhook_all()
             logging.info("Previous hotkeys cleared")
             
-            # 创建一个专门的回调函数，避免直接使用类方法
             def hotkey_callback():
                 try:
-                    if self.window.winfo_exists():  # 确保窗口还存在
-                        current_state = self.window.state()
-                        is_visible = self.window.winfo_viewable()
-                        logging.debug(f"Window state: {current_state}, Visible: {is_visible}")
+                    if not self.window.winfo_exists():
+                        logging.warning("Window does not exist, skipping hotkey action")
+                        return
                         
-                        if current_state == 'withdrawn' or not is_visible:
-                            logging.info("Hotkey pressed: Showing window")
-                            self.window.after(0, self.show_window)
-                        else:
-                            logging.info("Hotkey pressed: Minimizing window")
-                            self.window.after(0, self.minimize_to_tray)
+                    # 将窗口操作放入主线程队列
+                    self.window.after(0, self._handle_hotkey_action)
                 except Exception as e:
-                    error_msg = f"Error in hotkey callback: {str(e)}"
-                    logging.error(error_msg)
-                    logging.error(f"Traceback:\n{traceback.format_exc()}")
-            
+                    logging.error(f"Error in hotkey callback: {str(e)}")
+                    self.retry_register_hotkey()
+
             # 注册新的快捷键
             keyboard.add_hotkey(
-                self.settings.toggle_hotkey, 
+                self.settings.toggle_hotkey,
                 hotkey_callback,
                 suppress=True,
                 trigger_on_release=True
             )
+            
+            self.hotkey_registered = True
+            self.hotkey_retry_count = 0
             logging.info(f"Global hotkey registered successfully: {self.settings.toggle_hotkey}")
+            
         except Exception as e:
             error_msg = f"Failed to register hotkey: {str(e)}"
             logging.error(error_msg)
-            logging.error(f"Traceback:\n{traceback.format_exc()}")
-            messagebox.showerror("错误", f"注册快捷键失败: {str(e)}")
+            self.retry_register_hotkey()
+
+    def retry_register_hotkey(self):
+        """重试注册快捷键"""
+        if self.hotkey_retry_count < self.MAX_RETRY_COUNT:
+            self.hotkey_retry_count += 1
+            logging.info(f"Retrying hotkey registration (attempt {self.hotkey_retry_count})")
+            self.window.after(1000 * self.hotkey_retry_count, self.register_hotkey)
+        else:
+            logging.error("Max retry attempts reached for hotkey registration")
+            messagebox.showerror("错误", "快捷键注册失败，请尝试重启应用")
+
+    def _handle_hotkey_action(self):
+        """处理快捷键动作"""
+        try:
+            current_state = self.window.state()
+            is_visible = self.window.winfo_viewable()
+            logging.debug(f"Window state: {current_state}, Visible: {is_visible}")
+            
+            if current_state == 'withdrawn' or not is_visible:
+                logging.info("Hotkey pressed: Showing window")
+                self.show_window()
+            else:
+                logging.info("Hotkey pressed: Minimizing window")
+                self.minimize_to_tray()
+        except Exception as e:
+            logging.error(f"Error handling hotkey action: {str(e)}")
 
     def set_toggle_hotkey(self):
         """设置显示/隐藏快捷键"""
@@ -1081,10 +1121,15 @@ class ProcessListWindow:
                 # 更新快捷键设置
                 self.settings.toggle_hotkey = dialog.result
                 self.settings.save_settings()
-                # 重新注册快捷键
+                
+                # 重置状态并重新注册快捷键
+                self.hotkey_registered = False
+                self.hotkey_retry_count = 0
                 self.register_hotkey()
+                
                 messagebox.showinfo("成功", f"快捷键已更新为: {dialog.result}")
             except Exception as e:
+                logging.error(f"Error setting hotkey: {str(e)}")
                 messagebox.showerror("错误", f"设置快捷键失败: {str(e)}")
 
 class AddProcessDialog:
