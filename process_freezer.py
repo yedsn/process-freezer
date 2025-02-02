@@ -421,8 +421,8 @@ class ProcessListWindow:
         self.process_manager.settings = self.settings  # 确保 ProcessManager 使用相同的 settings 实例
         self.window = tk.Tk()
         self.window.title("进程冻结器")
-        self.window.geometry("700x400")
-        self.window.configure(bg='#f0f0f0')  # 设置窗口背景色
+        self.window.geometry("800x450")
+        self.window.configure(bg='white')  # 设置窗口背景色
         
         # 设置窗口图标
         icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
@@ -441,37 +441,15 @@ class ProcessListWindow:
         self.create_tray_icon()
         
         # 创建主框架
-        main_frame = tk.Frame(self.window, bg='#f0f0f0')
+        main_frame = tk.Frame(self.window, bg='white')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
         # 创建顶部框架（包含标题和设置按钮）
-        top_frame = tk.Frame(main_frame, bg='#f0f0f0')
-        top_frame.pack(fill=tk.X)
-        
-        # 标题
-        title_label = tk.Label(top_frame, 
-                             text="进程管理器", 
-                             font=self.title_font,
-                             bg='#f0f0f0',
-                             fg='#333333')
-        title_label.pack(side=tk.LEFT, pady=(0, 10))
-        
-        # 设置按钮（使用⚙符号）
-        settings_btn = tk.Label(top_frame,
-                              text="⚙",
-                              font=('Microsoft YaHei UI', 16),
-                              bg='#f0f0f0',
-                              fg='#666666',
-                              cursor="hand2")
-        settings_btn.pack(side=tk.RIGHT, pady=(0, 10))
-        
-        # 绑定鼠标事件
-        settings_btn.bind('<Button-1>', lambda e: self.show_settings_menu(e))
-        settings_btn.bind('<Enter>', lambda e: settings_btn.configure(fg='#007bff'))
-        settings_btn.bind('<Leave>', lambda e: settings_btn.configure(fg='#666666'))
+        top_frame = tk.Frame(main_frame, bg='white')
+        top_frame.pack(fill=tk.X, pady=(0, 10))
         
         # 添加进程按钮（使用现代风格）
-        add_button = tk.Button(main_frame,
+        add_button = tk.Button(top_frame,
                              text="添加进程",
                              command=self.add_process,
                              font=self.default_font,
@@ -479,55 +457,93 @@ class ProcessListWindow:
                              fg='white',
                              relief=tk.FLAT,
                              padx=15)
-        add_button.pack(pady=(0, 10))
+        add_button.pack(side=tk.LEFT)
+        
+        # 设置按钮（使用⚙符号）
+        settings_btn = tk.Label(top_frame,
+                              text="⚙",
+                              font=('Microsoft YaHei UI', 16),
+                              bg='white',
+                              fg='#666666',
+                              cursor="hand2")
+        settings_btn.pack(side=tk.RIGHT)
+        
+        # 绑定鼠标事件
+        settings_btn.bind('<Button-1>', lambda e: self.show_settings_menu(e))
+        settings_btn.bind('<Enter>', lambda e: settings_btn.configure(fg='#007bff'))
+        settings_btn.bind('<Leave>', lambda e: settings_btn.configure(fg='#666666'))
+        
+        # 绑定鼠标悬停事件
+        add_button.bind('<Enter>', lambda e, b=add_button: self.on_hover(e, b))
+        add_button.bind('<Leave>', lambda e, b=add_button: self.on_leave(e, b))
         
         # 创建进程列表框架（带滚动条）
         list_container = tk.Frame(main_frame, bg='#f0f0f0')
         list_container.pack(fill=tk.BOTH, expand=True)
         
-        # 添加滚动条
-        scrollbar = tk.Scrollbar(list_container)
+        # 创建标题行（固定在顶部）
+        header_frame = tk.Frame(list_container, bg='white')
+        header_frame.pack(fill=tk.X)
+        
+        # 添加标题列
+        tk.Label(header_frame, 
+                text="进程名称", 
+                width=30, 
+                anchor='w', 
+                bg='white', 
+                font=('Microsoft YaHei UI', 10, 'bold'),
+                pady=8).pack(side=tk.LEFT, padx=5)  # 减少垂直内边距
+                
+        tk.Label(header_frame, 
+                text="进程ID", 
+                width=20, 
+                anchor='w', 
+                bg='white', 
+                font=('Microsoft YaHei UI', 10, 'bold'),
+                pady=8).pack(side=tk.LEFT, padx=5)
+                
+        tk.Label(header_frame, 
+                text="状态", 
+                width=10, 
+                anchor='w', 
+                bg='white', 
+                font=('Microsoft YaHei UI', 10, 'bold'),
+                pady=8).pack(side=tk.LEFT, padx=5)
+                
+        tk.Label(header_frame, 
+                text="操作", 
+                width=20, 
+                anchor='w', 
+                bg='white', 
+                font=('Microsoft YaHei UI', 10, 'bold'),
+                pady=8).pack(side=tk.LEFT, padx=5)
+        
+        # 添加Canvas和滚动条
+        self.canvas = tk.Canvas(list_container, bg='white', height=200)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        scrollbar = tk.Scrollbar(list_container, command=self.canvas.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
+        # 配置Canvas
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        
         # 进程列表框架
-        self.list_frame = tk.Frame(list_container, bg='white')
-        self.list_frame.pack(fill=tk.BOTH, expand=True)
+        self.list_frame = tk.Frame(self.canvas, bg='white')
+        self.canvas.create_window((0, 0), window=self.list_frame, anchor='nw', width=self.canvas.winfo_reqwidth())
         
-        # 底部按钮框架
-        button_frame = tk.Frame(main_frame, bg='#f0f0f0')
-        button_frame.pack(pady=10)
+        # 绑定调整大小事件
+        self.list_frame.bind('<Configure>', lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind('<Configure>', lambda e: self.canvas.itemconfig(self.canvas.find_withtag('all')[0], width=e.width))
         
-        # 最小化按钮
-        minimize_btn = tk.Button(button_frame,
-                               text="最小化",
-                               command=self.minimize_to_tray,
-                               font=self.default_font,
-                               bg='#6c757d',
-                               fg='white',
-                               relief=tk.FLAT,
-                               padx=15)
-        minimize_btn.pack(side=tk.LEFT, padx=5)
+        # 绑定鼠标滚轮事件
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         
-        # 退出按钮
-        quit_btn = tk.Button(button_frame,
-                           text="退出",
-                           command=self.quit_app,
-                           font=self.default_font,
-                           bg='#dc3545',
-                           fg='white',
-                           relief=tk.FLAT,
-                           padx=15)
-        quit_btn.pack(side=tk.LEFT, padx=5)
-        
-        self.update_process_list()
-        
-        # 绑定鼠标悬停事件
-        for btn in [add_button, minimize_btn, quit_btn]:
-            btn.bind('<Enter>', lambda e, b=btn: self.on_hover(e, b))
-            btn.bind('<Leave>', lambda e, b=btn: self.on_leave(e, b))
-
         # 设置窗口置顶状态
         self.set_window_on_top(self.settings.always_on_top)
+
+        # 更新进程列表显示
+        self.update_process_list()
 
         # 添加快捷键状态标志
         self.hotkey_registered = False
@@ -538,64 +554,39 @@ class ProcessListWindow:
         self.window.after(1000, self.ensure_hotkey_registered)  # 延迟1秒注册
 
     def on_hover(self, event, button):
-        # 鼠标悬停时改变按钮颜色
+        """鼠标悬停效果"""
         if button['text'] == "添加进程":
-            button.configure(bg='#0056b3')
+            button.configure(bg='#0056b3')  # 深蓝色
         elif button['text'] == "最小化":
-            button.configure(bg='#5a6268')
+            button.configure(bg='#5a6268')  # 深灰色
         elif button['text'] == "冻结":
-            button.configure(bg='#c82333')
+            button.configure(bg='#c82333')  # 深红色
         elif button['text'] == "解冻":
-            button.configure(bg='#218838')
+            button.configure(bg='#218838')  # 深绿色
         elif button['text'] == "删除":
-            button.configure(bg='#5a6268')
+            button.configure(bg='#5a6268')  # 深灰色
         else:  # 退出按钮
-            button.configure(bg='#c82333')
-
+            button.configure(bg='#c82333')  # 深红色
+    
     def on_leave(self, event, button):
-        # 鼠标离开时恢复按钮颜色
+        """鼠标离开效果"""
         if button['text'] == "添加进程":
-            button.configure(bg='#007bff')
+            button.configure(bg='#007bff')  # 恢复蓝色
         elif button['text'] == "最小化":
-            button.configure(bg='#6c757d')
+            button.configure(bg='#6c757d')  # 恢复灰色
         elif button['text'] == "冻结":
-            button.configure(bg='#dc3545')
+            button.configure(bg='#dc3545')  # 恢复红色
         elif button['text'] == "解冻":
-            button.configure(bg='#28a745')
+            button.configure(bg='#28a745')  # 恢复绿色
         elif button['text'] == "删除":
-            button.configure(bg='#6c757d')
+            button.configure(bg='#6c757d')  # 恢复灰色
         else:  # 退出按钮
-            button.configure(bg='#dc3545')
+            button.configure(bg='#dc3545')  # 恢复红色
 
     def update_process_list(self):
         # 清除现有项目
         for widget in self.list_frame.winfo_children():
             widget.destroy()
-            
-        # 添加表头
-        header_frame = tk.Frame(self.list_frame, bg='#f8f9fa')
-        header_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
-        
-        # 表头标签
-        headers = [
-            ("进程名称", 200),
-            ("进程标识符", 200),
-            ("状态", 100),
-            ("操作", 180)
-        ]
-        
-        for text, width in headers:
-            header_label = tk.Label(header_frame,
-                                  text=text,
-                                  font=(self.default_font[0], self.default_font[1], 'bold'),
-                                  bg='#f8f9fa',
-                                  fg='#495057',
-                                  width=width // 10)  # 转换为大约的字符宽度
-            header_label.pack(side=tk.LEFT, padx=10, pady=5)
-            
-        # 添加分隔线
-        separator = tk.Frame(self.list_frame, height=2, bg='#dee2e6')
-        separator.pack(fill=tk.X, padx=10, pady=(0, 5))
             
         # 添加新项目
         for proc_id, data in self.process_manager.processes.items():
@@ -610,8 +601,8 @@ class ProcessListWindow:
                                 font=self.default_font,
                                 bg='white',
                                 fg='#666666',
-                                width=20)
-            name_label.pack(side=tk.LEFT, padx=10, pady=5)
+                                width=30)
+            name_label.pack(side=tk.LEFT, padx=5)
             
             # 进程ID标签
             id_label = tk.Label(item_frame,
@@ -620,7 +611,7 @@ class ProcessListWindow:
                               bg='white',
                               fg='#333333',
                               width=20)
-            id_label.pack(side=tk.LEFT, padx=10)
+            id_label.pack(side=tk.LEFT, padx=5)
             
             # 状态标签
             status_text = "已冻结" if data.get("is_frozen", False) else "未冻结"
@@ -631,11 +622,11 @@ class ProcessListWindow:
                                   bg='white',
                                   fg=status_color,
                                   width=10)
-            status_label.pack(side=tk.LEFT, padx=10)
+            status_label.pack(side=tk.LEFT, padx=5)
             
             # 按钮框架（居中对齐）
             button_frame = tk.Frame(item_frame, bg='white')
-            button_frame.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
+            button_frame.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
             
             # 创建一个内部框架来包含按钮，实现居中对齐
             inner_button_frame = tk.Frame(button_frame, bg='white')
@@ -995,6 +986,16 @@ class ProcessListWindow:
         # 添加修改快捷键选项
         settings_menu.add_command(label="    修改显示/隐藏快捷键", 
                                 command=self.set_toggle_hotkey)
+
+        # 添加程序操作分组
+        settings_menu.add_separator()
+        settings_menu.add_command(label="程序操作", state="disabled")
+        settings_menu.add_separator()
+        settings_menu.add_command(label="    最小化到托盘", 
+                                command=self.minimize_to_tray)
+        settings_menu.add_command(label="    退出程序", 
+                                command=self.quit_app,
+                                foreground='#dc3545')  # 使用红色突出显示退出选项
         
         # 显示菜单
         settings_menu.post(event.x_root, event.y_root)
@@ -1131,6 +1132,19 @@ class ProcessListWindow:
             except Exception as e:
                 logging.error(f"Error setting hotkey: {str(e)}")
                 messagebox.showerror("错误", f"设置快捷键失败: {str(e)}")
+
+    def _on_mousewheel(self, event):
+        # 检查鼠标是否在canvas区域内
+        canvas_x = self.canvas.winfo_rootx()
+        canvas_y = self.canvas.winfo_rooty()
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        mouse_x = self.window.winfo_pointerx()
+        mouse_y = self.window.winfo_pointery()
+        
+        if (canvas_x <= mouse_x <= canvas_x + canvas_width and
+            canvas_y <= mouse_y <= canvas_y + canvas_height):
+            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
 class AddProcessDialog:
     def __init__(self, parent):
