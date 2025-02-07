@@ -424,6 +424,9 @@ class ProcessListWindow:
         self.window.geometry("800x450")
         self.window.configure(bg='white')  # 设置窗口背景色
         
+        # 用于控制快捷键检查的标志
+        self.running = True
+        
         # 设置窗口图标
         icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
         if os.path.exists(icon_path):
@@ -680,11 +683,16 @@ class ProcessListWindow:
             logging.error(error_msg)
             logging.error(f"Traceback:\n{traceback.format_exc()}")
     
-    def quit_app(self):
+    def quit_app(self, from_tray=False):
         """退出应用程序"""
         try:
-            if messagebox.askokcancel("确认退出", "确定要退出程序吗？"):
+            # 如果是从托盘退出，或者用户确认退出
+            if from_tray or messagebox.askokcancel("确认退出", "确定要退出程序吗？"):
                 logging.info("User confirmed application exit")
+                
+                # 停止快捷键检查
+                self.running = False
+                logging.info("Hotkey check stopped")
                 
                 # 确保在退出前清理所有快捷键
                 try:
@@ -694,6 +702,7 @@ class ProcessListWindow:
                 except Exception as e:
                     logging.error(f"Error clearing keyboard hooks: {str(e)}")
                 
+                # 停止托盘图标
                 try:
                     if hasattr(self, 'tray_icon'):
                         self.tray_icon.stop()
@@ -701,6 +710,7 @@ class ProcessListWindow:
                 except Exception as e:
                     logging.error(f"Error stopping tray icon: {str(e)}")
                 
+                # 销毁窗口
                 try:
                     self.window.quit()
                     self.window.destroy()
@@ -709,12 +719,12 @@ class ProcessListWindow:
                     logging.error(f"Error destroying window: {str(e)}")
                 
                 logging.info("Application exit successful")
-                os._exit(0)
+                sys.exit(0)  # 使用sys.exit代替os._exit以允许清理
         except Exception as e:
             error_msg = f"Critical error during application exit: {str(e)}"
             logging.error(error_msg)
             logging.error(f"Traceback:\n{traceback.format_exc()}")
-            os._exit(1)
+            sys.exit(1)  # 使用sys.exit代替os._exit以允许清理
 
     def add_process(self):
         dialog = AddProcessDialog(self.window)
@@ -837,6 +847,10 @@ class ProcessListWindow:
         def toggle_process(process_id):
             """切换进程状态的包装函数"""
             return lambda: self.toggle_from_tray(process_id)
+            
+        def quit_from_tray(icon):
+            """从托盘退出的包装函数"""
+            self.quit_app(from_tray=True)
         
         def get_menu():
             """获取最新的菜单项"""
@@ -870,7 +884,7 @@ class ProcessListWindow:
                 ),
                 pystray.MenuItem(
                     "退出",
-                    self.quit_app  # 使用专门的托盘退出函数
+                    quit_from_tray  # 使用包装函数
                 )
             ])
             
@@ -1042,14 +1056,34 @@ class ProcessListWindow:
 
     def ensure_hotkey_registered(self):
         """确保快捷键被正确注册"""
+        if not self.running:
+            return
+            
         try:
             if not self.hotkey_registered:
+                logging.warning("Hotkey not registered, attempting to register")
                 self.register_hotkey()
+            else:
+                # 测试快捷键是否仍然有效
+                try:
+                    hotkeys = keyboard._listener.handlers.get(self.settings.toggle_hotkey, [])
+                    if not hotkeys:
+                        logging.warning("Hotkey handler not found, re-registering")
+                        self.register_hotkey()
+                except Exception as e:
+                    logging.error(f"Error checking hotkey status: {str(e)}")
+                    logging.error(f"Traceback:\n{traceback.format_exc()}")
+                    self.register_hotkey()
             
-            # 定期检查快捷键状态
-            self.window.after(30000, self.ensure_hotkey_registered)  # 每30秒检查一次
+            # 只有在程序仍在运行时才继续检查
+            if self.running:
+                self.window.after(10000, self.ensure_hotkey_registered)  # 每10秒检查一次
         except Exception as e:
             logging.error(f"Error in ensure_hotkey_registered: {str(e)}")
+            logging.error(f"Traceback:\n{traceback.format_exc()}")
+            # 发生错误时，尝试重新注册
+            if self.running:
+                self.register_hotkey()
 
     def register_hotkey(self):
         """注册全局快捷键"""
@@ -1068,6 +1102,7 @@ class ProcessListWindow:
                     self.window.after(0, self._handle_hotkey_action)
                 except Exception as e:
                     logging.error(f"Error in hotkey callback: {str(e)}")
+                    logging.error(f"Traceback:\n{traceback.format_exc()}")
                     self.retry_register_hotkey()
 
             # 注册新的快捷键
@@ -1085,17 +1120,25 @@ class ProcessListWindow:
         except Exception as e:
             error_msg = f"Failed to register hotkey: {str(e)}"
             logging.error(error_msg)
+            logging.error(f"Traceback:\n{traceback.format_exc()}")
             self.retry_register_hotkey()
 
     def retry_register_hotkey(self):
         """重试注册快捷键"""
-        if self.hotkey_retry_count < self.MAX_RETRY_COUNT:
-            self.hotkey_retry_count += 1
-            logging.info(f"Retrying hotkey registration (attempt {self.hotkey_retry_count})")
-            self.window.after(1000 * self.hotkey_retry_count, self.register_hotkey)
-        else:
-            logging.error("Max retry attempts reached for hotkey registration")
-            messagebox.showerror("错误", "快捷键注册失败，请尝试重启应用")
+        MAX_RETRY_COUNT = 5  # 最大重试次数
+        try:
+            if self.hotkey_retry_count < MAX_RETRY_COUNT:
+                self.hotkey_retry_count += 1
+                retry_delay = min(1000 * (2 ** self.hotkey_retry_count), 30000)  # 指数退避，最大30秒
+                logging.info(f"Retrying hotkey registration (attempt {self.hotkey_retry_count}) after {retry_delay}ms")
+                self.window.after(retry_delay, self.register_hotkey)
+            else:
+                logging.error("Max retry attempts reached for hotkey registration")
+                self.hotkey_retry_count = 0  # 重置重试计数
+                messagebox.showerror("错误", "快捷键注册失败，请尝试重启应用")
+        except Exception as e:
+            logging.error(f"Error in retry_register_hotkey: {str(e)}")
+            logging.error(f"Traceback:\n{traceback.format_exc()}")
 
     def _handle_hotkey_action(self):
         """处理快捷键动作"""
